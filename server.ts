@@ -150,8 +150,12 @@ app.delete('/api/transactions/:id', (req, res) => {
 
 
 // --- VITE MIDDLEWARE ---
+import fs from 'fs';
+
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(process.cwd(), 'dist');
+  
+  if (process.env.NODE_ENV !== 'production' && !fs.existsSync(distPath)) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -159,7 +163,6 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
