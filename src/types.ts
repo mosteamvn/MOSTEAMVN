@@ -23,6 +23,14 @@ export interface Category {
   parentId?: string | null;
 }
 
+export interface Budget {
+  id: string;
+  categoryId: string; // 'all' for total budget, or specific category id
+  amount: number;
+  month: string; // e.g. '2023-10'
+  isRecurring: boolean;
+}
+
 export interface Transaction {
   id: string;
   walletId: string;

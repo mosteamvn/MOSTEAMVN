@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Toaster } from 'react-hot-toast';
+import { useState, useEffect, useMemo } from 'react';
+import { Toaster, toast } from 'react-hot-toast';
 import { Home, List, PieChart, User, PlusCircle } from 'lucide-react';
 import { cn } from './lib/utils';
-import { Transaction, Wallet, Category } from './types';
+import { Transaction, Wallet, Category, Budget } from './types';
 import DashboardView from './views/DashboardView';
 import TransactionsView from './views/TransactionsView';
 import StatisticsView from './views/StatisticsView';
@@ -10,40 +10,213 @@ import ProfileView from './views/ProfileView';
 import CategoriesView from './views/CategoriesView';
 import WalletsView from './views/WalletsView';
 import AddTransactionModal from './components/AddTransactionModal';
+import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
-export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets';
+import BudgetsView from './views/BudgetsView';
+import MoneyInsiderView from './views/MoneyInsiderView';
+import { useAuth } from './contexts/AuthContext';
+import LoginView from './views/LoginView';
+import { subscribeWallets, subscribeCategories, subscribeTransactions, subscribeBudgets, initializeUserData } from './lib/api';
+import PinLockView from './components/PinLockView';
+
+export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider';
 
 export default function App() {
+  const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState<ViewState>('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAppLocked, setIsAppLocked] = useState<boolean>(true);
+
+  // Reset lock state when user logs out
+  useEffect(() => {
+    if (!user) {
+      setIsAppLocked(true);
+    }
+  }, [user]);
+
+  const hasPin = useMemo(() => {
+    if (!user) return false;
+    return !!localStorage.getItem(`app_pin_${user.uid}`);
+  }, [user]);
   
   // App Data State
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch initial data
-  const fetchData = async () => {
-    try {
-      const [wRes, cRes, tRes] = await Promise.all([
-        fetch('/api/wallets'),
-        fetch('/api/categories'),
-        fetch('/api/transactions')
-      ]);
-      setWallets(await wRes.json());
-      setCategories(await cRes.json());
-      setTransactions(await tRes.json());
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
+  useEffect(() => {
+    let active = true;
+    let unsubscribes: (() => void)[] = [];
+
+    if (user) {
+      setIsLoading(true);
+      initializeUserData(user.uid)
+        .then(() => {
+          if (!active) return;
+          
+          const unsubWallets = subscribeWallets(user.uid, (data) => {
+            if (active) setWallets(data);
+          });
+          const unsubCategories = subscribeCategories(user.uid, (data) => {
+            if (active) setCategories(data);
+          });
+          const unsubTransactions = subscribeTransactions(user.uid, (data) => {
+            if (active) setRawTransactions(data);
+          });
+          const unsubBudgets = subscribeBudgets(user.uid, (data) => {
+            if (active) setBudgets(data);
+          });
+          
+          unsubscribes.push(unsubWallets, unsubCategories, unsubTransactions, unsubBudgets);
+          setIsLoading(false);
+        })
+        .catch((error: any) => {
+          if (!active) return;
+          console.error('Initialization error:', error);
+          toast.error('Lỗi khởi tạo dữ liệu: ' + error.message);
+          setIsLoading(false);
+        });
+    } else {
       setIsLoading(false);
     }
-  };
 
+    return () => {
+      active = false;
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [user]);
+
+  const transactions = useMemo(() => {
+    return rawTransactions.map(t => ({
+      ...t,
+      category: categories.find(c => c.id === t.categoryId),
+      wallet: wallets.find(w => w.id === t.walletId)
+    }));
+  }, [rawTransactions, categories, wallets]);
+
+  // Alert notifications when spending reaches 80% or 90% of budget limit
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!user || budgets.length === 0 || transactions.length === 0) return;
+
+    const currentMonthStr = new Date().toISOString().slice(0, 7);
+    const currentDate = new Date();
+
+    const expensesThisMonth = transactions.filter(t => 
+      t.type === 'expense' &&
+      isWithinInterval(new Date(t.date), { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
+    );
+
+    const activeBudgets = budgets.filter(b => b.month === currentMonthStr || b.isRecurring);
+
+    activeBudgets.forEach(b => {
+      let spent = 0;
+      if (b.categoryId === 'all') {
+        spent = expensesThisMonth.reduce((sum, t) => sum + t.amount, 0);
+      } else {
+        spent = expensesThisMonth
+          .filter(t => t.categoryId === b.categoryId)
+          .reduce((sum, t) => sum + t.amount, 0);
+      }
+
+      if (b.amount > 0) {
+        const percentage = (spent / b.amount) * 105 ? (spent / b.amount) * 100 : 0;
+        const categoryName = b.categoryId === 'all'
+          ? 'Tổng ngân sách'
+          : categories.find(c => c.id === b.categoryId)?.name || 'Chi tiêu';
+
+        const toastDetails = (threshold: 80 | 90) => {
+          const storageKey = `budget_notified_${user.uid}_${currentMonthStr}_${b.id || b.categoryId}_${b.amount}_${threshold}`;
+          if (!localStorage.getItem(storageKey)) {
+            localStorage.setItem(storageKey, 'true');
+
+            const limitStr = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(b.amount);
+            const spentStr = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(spent);
+            const percentStr = Math.round(percentage);
+
+            toast.custom((t) => (
+              <div
+                className={`${
+                  t.visible ? 'animate-enter' : 'animate-leave'
+                } max-w-sm w-full bg-white dark:bg-slate-900 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 dark:ring-slate-800 p-4 border-l-4 ${
+                  threshold === 90 ? 'border-rose-500' : 'border-amber-500'
+                } transition-all duration-300`}
+              >
+                <div className="flex-1 w-0">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 pt-0.5">
+                      <span className="text-xl">{threshold === 90 ? '🚨' : '⚠️'}</span>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        Cảnh báo hạn mức ({percentStr}%)
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                        Ngân sách <span className="font-semibold text-slate-800 dark:text-slate-200">"{categoryName}"</span> tháng này đạt <span className="font-semibold p-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-500 dark:text-rose-400">{spentStr}</span>, vượt quá <span className="font-bold">{percentStr}%</span> hạn mức ({limitStr}).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="ml-4 flex-shrink-0 flex">
+                  <button
+                    onClick={() => toast.dismiss(t.id)}
+                    className="bg-transparent rounded-lg p-1 inline-flex text-slate-400 hover:text-slate-500 focus:outline-none"
+                  >
+                    <span className="sr-only">Đóng</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ), { duration: 6000 });
+          }
+        };
+
+        if (percentage >= 90) {
+          toastDetails(90);
+        } else if (percentage >= 80) {
+          toastDetails(80);
+        }
+      }
+    });
+
+  }, [budgets, transactions, categories, user]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
+        <div className="flex items-center justify-center w-full max-w-md h-screen">
+           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
+        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 min-h-screen shadow-xl relative overflow-hidden">
+          <LoginView />
+          <Toaster position="top-center" />
+        </div>
+      </div>
+    );
+  }
+
+  if (hasPin && isAppLocked) {
+    return (
+      <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
+        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 min-h-screen shadow-xl relative overflow-hidden">
+          <PinLockView mode="unlock" onUnlock={() => setIsAppLocked(false)} />
+          <Toaster position="top-center" />
+        </div>
+      </div>
+    );
+  }
+
+  const fetchData = async () => {}; // Used by some components temporarily
 
   const navItems = [
     { id: 'home', icon: Home, label: 'Trang chủ' },
@@ -67,10 +240,12 @@ export default function App() {
             <>
               {activeView === 'home' && <DashboardView wallets={wallets} transactions={transactions} setActiveView={setActiveView} />}
               {activeView === 'transactions' && <TransactionsView transactions={transactions} onDataChange={fetchData} />}
-              {activeView === 'statistics' && <StatisticsView transactions={transactions} />}
+              {activeView === 'statistics' && <StatisticsView transactions={transactions} setActiveView={setActiveView} />}
               {activeView === 'profile' && <ProfileView setActiveView={setActiveView} />}
               {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
               {activeView === 'wallets' && <WalletsView wallets={wallets} setActiveView={setActiveView} />}
+              {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
+              {activeView === 'insider' && <MoneyInsiderView transactions={transactions} setActiveView={setActiveView} />}
             </>
           )}
         </main>

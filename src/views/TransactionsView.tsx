@@ -5,7 +5,8 @@ import { Transaction } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { DynamicIcon } from '../components/DynamicIcon';
 import toast from 'react-hot-toast';
-import { Trash2, Filter } from 'lucide-react';
+import { Trash2, Filter, Search, Download } from 'lucide-react';
+import { deleteTransaction } from '../lib/api';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
@@ -20,19 +21,18 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(id);
+  const handleDelete = async (tx: Transaction) => {
+    setIsDeleting(tx.id);
     try {
-      const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('Đã xoá giao dịch');
-        onDataChange();
-      } else {
-        toast.error('Xoá giao dịch thất bại');
-      }
-    } catch (e) {
-      toast.error('Có lỗi xảy ra');
+      if (!tx.wallet) return;
+      await deleteTransaction(tx, tx.wallet.balance);
+      toast.success('Đã xoá giao dịch');
+      // No need to onDataChange, onSnapshot will handle it.
+    } catch (e: any) {
+      toast.error('Có lỗi xảy ra: ' + e.message);
     } finally {
       setIsDeleting(null);
     }
@@ -40,6 +40,16 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
 
   const filteredTransactionsList = useMemo(() => {
     return transactions.filter(tx => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesNote = tx.note?.toLowerCase().includes(query);
+        const matchesCategory = tx.category?.name?.toLowerCase().includes(query);
+        const matchesAmount = tx.amount.toString().includes(query);
+        if (!matchesNote && !matchesCategory && !matchesAmount) return false;
+      }
+
+      // Date filter
       const txDate = new Date(tx.date);
       if (filterType === 'all') return true;
       if (filterType === 'day') return isSameDay(txDate, new Date());
@@ -55,7 +65,59 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
       }
       return true;
     });
-  }, [transactions, filterType, customStartDate, customEndDate]);
+  }, [transactions, filterType, customStartDate, customEndDate, searchQuery]);
+
+  const handleExportCSV = () => {
+    if (filteredTransactionsList.length === 0) {
+      toast.error('Không có giao dịch nào để xuất!');
+      return;
+    }
+
+    try {
+      // CSV Headers
+      const headers = ['Ngày giao dịch', 'Hạng mục', 'Loại giao dịch', 'Ví tài khoản', 'Số tiền (VND)', 'Ghi chú'];
+      
+      // Map transactions data
+      const rows = filteredTransactionsList.map(tx => {
+        const dateStr = format(new Date(tx.date), 'dd/MM/yyyy HH:mm', { locale: vi });
+        const categoryName = tx.category?.name || 'Khác';
+        const typeStr = tx.type === 'income' ? 'Khoản thu' : tx.type === 'expense' ? 'Khoản chi' : 'Ghi nợ';
+        const walletName = tx.wallet?.name || '';
+        const amountStr = tx.amount.toString();
+        const noteStr = (tx.note || '').replace(/"/g, '""'); // Escape double quotes
+
+        return [
+          `"${dateStr}"`,
+          `"${categoryName}"`,
+          `"${typeStr}"`,
+          `"${walletName}"`,
+          amountStr,
+          `"${noteStr}"`
+        ];
+      });
+
+      // Assemble CSV string
+      const csvStr = [headers.join(','), ...rows.map(line => line.join(','))].join('\n');
+      
+      // UTF-8 BOM indicator so Excel displays Vietnamese correctly
+      const blob = new Blob(['\uFEFF' + csvStr], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      
+      const fileDateSuffix = format(new Date(), 'dd-MM-yyyy_HHmmss');
+      link.setAttribute('download', `giao_dich_${filterType}_${fileDateSuffix}.csv`);
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Đã xuất thành công ${filteredTransactionsList.length} giao dịch sang CSV!`);
+    } catch (err: any) {
+      toast.error('Có lỗi xảy ra khi tải file CSV: ' + err.message);
+    }
+  };
 
   // Group transactions by date
   const groupedTransactions: { date: Date; items: Transaction[] }[] = [];
@@ -72,14 +134,48 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
 
   return (
     <div className="p-5 space-y-5">
-      <header className="py-2 mb-2 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md z-10 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Giao dịch</h1>
-        <button 
-          onClick={() => setShowFilter(!showFilter)}
-          className={cn("p-2 rounded-full transition-colors", showFilter ? "bg-[#1DBF73] text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300")}
-        >
-          <Filter size={18} />
-        </button>
+      <header className="py-2 mb-2 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md z-10 flex items-center justify-between gap-2">
+        {!showSearch ? (
+          <>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Giao dịch</h1>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleExportCSV}
+                className="p-2 rounded-full transition-colors bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-[#1DBF73]"
+                title="Xuất dữ liệu CSV"
+              >
+                <Download size={18} />
+              </button>
+              <button 
+                onClick={() => setShowSearch(true)}
+                className="p-2 rounded-full transition-colors bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                <Search size={18} />
+              </button>
+              <button 
+                onClick={() => setShowFilter(!showFilter)}
+                className={cn("p-2 rounded-full transition-colors", showFilter ? "bg-[#1DBF73] text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300")}
+              >
+                <Filter size={18} />
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-right-4">
+            <Search size={18} className="text-slate-400" />
+            <input 
+              type="text"
+              autoFocus
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm..."
+              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-slate-900 dark:text-white"
+            />
+            <button onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+              <DynamicIcon name="X" size={16} />
+            </button>
+          </div>
+        )}
       </header>
 
       {showFilter && (
@@ -175,7 +271,7 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
                         </p>
                       </div>
                       <button 
-                        onClick={() => handleDelete(tx.id)}
+                        onClick={() => handleDelete(tx)}
                         disabled={isDeleting === tx.id}
                         className="text-slate-300 hover:text-rose-500 transition-colors p-2 -mr-2 opacity-0 group-hover:opacity-100 focus:opacity-100"
                         title="Delete Transaction"

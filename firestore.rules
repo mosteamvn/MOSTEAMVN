@@ -1,0 +1,129 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'mosteamvn@gmail.com';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is number;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt'])
+        && data.email is string
+        && data.email.size() <= 128
+        && data.role in ['user', 'admin']
+        && data.createdAt is number;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && isValidTimestamp(incoming().createdAt);
+      allow update: if isOwner(userId)
+        && (isAdmin() 
+        || (incoming().diff(existing()).affectedKeys().hasOnly(['name']) && incoming().name is string));
+      allow delete: if isAdmin();
+    }
+
+    function isValidWallet(data) {
+      return data.keys().hasAll(['userId', 'name', 'balance', 'color', 'icon', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 64
+        && data.balance is number
+        && data.color is string && data.color.size() <= 16
+        && data.icon is string && data.icon.size() <= 32
+        && data.createdAt is number;
+    }
+
+    match /wallets/{walletId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(walletId) && isValidWallet(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidWallet(incoming()) && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['userId', 'name', 'type', 'icon', 'color', 'createdAt'])
+        && data.userId is string && (data.userId == request.auth.uid || data.userId == 'system')
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 64
+        && data.type in ['income', 'expense', 'debt']
+        && data.icon is string && data.icon.size() <= 32
+        && data.color is string && data.color.size() <= 16
+        && (data.get('parentId', null) == null || data.get('parentId', null) is string)
+        && data.createdAt is number;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || existing().userId == 'system' || isAdmin());
+      allow create: if isSignedIn() && isValidId(categoryId) && isValidCategory(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidCategory(incoming()) && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['userId', 'walletId', 'categoryId', 'amount', 'date', 'type', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid
+        && data.walletId is string
+        && data.categoryId is string
+        && data.amount is number
+        && data.date is string && data.date.size() <= 32
+        && data.type in ['income', 'expense', 'debt']
+        && (data.get('note', null) == null || (data.get('note', null) is string && data.get('note', null).size() <= 256))
+        && data.createdAt is number;
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(transactionId) && isValidTransaction(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidTransaction(incoming()) && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    function isValidBudget(data) {
+      return data.keys().hasAll(['userId', 'categoryId', 'amount', 'month', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid
+        && data.categoryId is string
+        && data.amount is number && data.amount > 0
+        && data.month is string && data.month.size() == 7
+        && (data.get('isRecurring', null) == null || data.get('isRecurring', null) is bool)
+        && data.createdAt is number;
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(budgetId) && isValidBudget(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidBudget(incoming()) && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+  }
+}

@@ -1,7 +1,9 @@
+import { useState, useMemo } from 'react';
 import { formatCurrency } from '../lib/utils';
 import { Wallet, Transaction } from '../types';
 import { DynamicIcon } from '../components/DynamicIcon';
 import { format, isThisMonth } from 'date-fns';
+import { Search, X } from 'lucide-react';
 
 interface DashboardViewProps {
   wallets: Wallet[];
@@ -10,6 +12,9 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ wallets, transactions, setActiveView }: DashboardViewProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
   
   const currentMonthTransactions = transactions.filter(t => isThisMonth(new Date(t.date)));
@@ -22,21 +27,103 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
   
   const recentTransactions = transactions.slice(0, 5);
 
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    const query = searchQuery.toLowerCase();
+    return transactions.filter(tx => {
+      const matchesNote = tx.note?.toLowerCase().includes(query);
+      const matchesCategory = tx.category?.name?.toLowerCase().includes(query);
+      const matchesAmount = tx.amount.toString().includes(query);
+      return matchesNote || matchesCategory || matchesAmount;
+    });
+  }, [searchQuery, transactions]);
+
   return (
     <div className="p-5 space-y-6">
-      <header className="flex justify-between items-center py-2">
-        <div>
-          <p className="text-slate-400 text-sm font-medium tracking-wide">Tổng số dư</p>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {formatCurrency(totalBalance)}
-          </h1>
-        </div>
-        <div className="w-11 h-11 bg-slate-200 rounded-full overflow-hidden border-2 border-slate-50 shadow-sm flex items-center justify-center">
-          <DynamicIcon name="User" className="text-slate-500" />
-        </div>
+      <header className="flex justify-between items-center py-2 gap-4">
+        {!isSearching ? (
+          <>
+            <div>
+              <p className="text-slate-400 text-sm font-medium tracking-wide">Tổng số dư</p>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {formatCurrency(totalBalance)}
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsSearching(true)}
+                className="w-11 h-11 bg-white dark:bg-slate-900 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                <Search size={20} />
+              </button>
+              <div className="w-11 h-11 bg-slate-200 rounded-full overflow-hidden border-2 border-slate-50 shadow-sm flex items-center justify-center">
+                <DynamicIcon name="User" className="text-slate-500" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-full border border-[#1DBF73]/50 shadow-sm shadow-[#1DBF73]/10 animate-in fade-in slide-in-from-right-4">
+            <Search size={20} className="text-[#1DBF73]" />
+            <input 
+              type="text"
+              autoFocus
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Tìm giao dịch, số tiền..."
+              className="flex-1 bg-transparent border-none outline-none font-medium text-slate-900 dark:text-white"
+            />
+            <button onClick={() => { setIsSearching(false); setSearchQuery(''); }} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+              <X size={18} />
+            </button>
+          </div>
+        )}
       </header>
 
-      {/* Summary Cards */}
+      {isSearching ? (
+        <section className="animate-in fade-in">
+          <h2 className="text-sm font-bold text-slate-500 mb-4 tracking-wider uppercase">Kết quả tìm kiếm</h2>
+          <div className="space-y-3">
+            {searchResults.map(tx => (
+              <div key={tx.id} className="group bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:border-[#1DBF73]/30 transition-colors cursor-pointer" onClick={() => setActiveView('transactions')}>
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm"
+                    style={{ backgroundColor: tx.category?.color + '15', color: tx.category?.color }}
+                  >
+                    <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">{tx.note || format(new Date(tx.date), 'dd MMM yyyy')} • {tx.wallet?.name}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`font-bold text-sm ${
+                    tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) 
+                      ? 'text-[#1DBF73]' 
+                      : 'text-slate-900 dark:text-slate-100'
+                  }`}>
+                    {tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) ? '+' : '-'}
+                    {formatCurrency(tx.amount)}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {searchResults.length === 0 && searchQuery && (
+              <div className="text-center py-10 text-slate-400 text-sm font-medium">
+                Không tìm thấy giao dịch nào phù hợp
+              </div>
+            )}
+            {!searchQuery && (
+              <div className="text-center py-10 text-slate-400 text-sm font-medium">
+                Nhập từ khóa để bắt đầu tìm kiếm
+              </div>
+            )}
+          </div>
+        </section>
+      ) : (
+        <>
+          {/* Summary Cards */}
       <div className="relative rounded-xl bg-gradient-to-br from-[#1DBF73] to-[#0D9488] p-5 flex flex-col justify-center shadow-lg shadow-[#1DBF73]/20 overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full translate-x-1/2 -translate-y-1/2"></div>
         <p className="text-white text-lg font-bold mb-4 relative z-10">Dòng tiền tháng</p>
@@ -135,6 +222,8 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
       
       {/* Spacer for bottom nav */}
       <div className="h-6"></div>
+      </>
+      )}
     </div>
   );
 }

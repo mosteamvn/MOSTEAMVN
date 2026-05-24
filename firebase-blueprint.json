@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "number", "description": "timestamp" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "A financial wallet belonging to a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "balance": { "type": "number" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "name", "balance", "color", "icon", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A transaction category (global or user specific)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "null or 'system' for global categories" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense", "debt"] },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "parentId": { "type": "string", "description": "Can be null" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "name", "type", "icon", "color", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction belonging to a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "walletId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "note": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense", "debt"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "walletId", "categoryId", "amount", "date", "type", "createdAt"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "A monthly budget for a category",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "amount": { "type": "number" },
+        "month": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "categoryId", "amount", "month", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "/wallets/{walletId}": {
+      "schema": { "$ref": "#/entities/Wallet" },
+      "description": "Stores user wallets."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Stores transaction categories."
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Stores financial transactions."
+    },
+    "/budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/Budget" },
+      "description": "Stores monthly budgets."
+    }
+  }
+}

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { Category, TransactionType } from '../types';
 import { DynamicIcon } from './DynamicIcon';
 import { toast } from 'react-hot-toast';
 import { cn } from '../lib/utils';
 import * as icons from 'lucide-react';
+import { addCategory, updateCategory } from '../lib/api';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export default function CategoryModal({ isOpen, onClose, category, type, categor
 
   const validParents = categories.filter(c => c.type === type && c.id !== category?.id && !c.parentId);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error('Vui lòng nhập tên nhóm');
@@ -70,24 +71,16 @@ export default function CategoryModal({ isOpen, onClose, category, type, categor
         parentId: parentId || null
       };
 
-      const url = category ? `/api/categories/${category.id}` : '/api/categories';
-      const method = category ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        toast.success(category ? 'Lưu thay đổi thành công' : 'Thêm nhóm thành công');
-        onSuccess();
+      if (category) {
+        await updateCategory(category.id, payload);
       } else {
-        const err = await res.json();
-        toast.error(err.error || 'Có lỗi xảy ra');
+        await addCategory(payload as Omit<Category, 'id'>);
       }
-    } catch (err) {
-      toast.error('Lỗi kết nối');
+      
+      toast.success(category ? 'Lưu thay đổi thành công' : 'Thêm nhóm thành công');
+      onSuccess();
+    } catch (err: any) {
+      toast.error('Lỗi kết nối: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }

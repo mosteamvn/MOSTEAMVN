@@ -6,6 +6,7 @@ import { ViewState } from '../App';
 import CategoryModal from '../components/CategoryModal';
 import { cn } from '../lib/utils';
 import { toast } from 'react-hot-toast';
+import { deleteCategory } from '../lib/api';
 
 interface CategoriesViewProps {
   categories: Category[];
@@ -23,12 +24,12 @@ export default function CategoriesView({ categories, onDataChange, setActiveView
   }, [categories, activeTab]);
 
   const tree = useMemo(() => {
-    const map = new Map<string, Category & { children: Category[] }>();
+    const map = new Map<string, Category & { children: any[] }>();
     filteredCategories.forEach(c => map.set(c.id, { ...c, children: [] }));
-    const roots: (Category & { children: Category[] })[] = [];
+    const roots: (Category & { children: any[] })[] = [];
     map.forEach(c => {
       if (c.parentId && map.has(c.parentId)) {
-        map.get(c.parentId)!.children.push(c);
+        map.get(c.parentId)!.children.push(map.get(c.id)!);
       } else {
         roots.push(c);
       }
@@ -50,20 +51,14 @@ export default function CategoriesView({ categories, onDataChange, setActiveView
     if (!window.confirm(`Bạn có chắc muốn xoá nhóm "${name}"?`)) return;
     
     try {
-      const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('Đã xoá nhóm giao dịch');
-        onDataChange();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || 'Xoá thất bại');
-      }
-    } catch {
-      toast.error('Có lỗi xảy ra');
+      await deleteCategory(id);
+      toast.success('Đã xoá nhóm giao dịch');
+    } catch (e: any) {
+      toast.error(e.message || 'Xoá thất bại');
     }
   };
 
-  const renderNode = (node: Category & { children: Category[] }, level = 0) => {
+  const renderNode = (node: Category & { children: any[] }, level = 0) => {
     return (
       <div key={node.id} className="flex flex-col">
         <div className={cn(

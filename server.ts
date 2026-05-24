@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
@@ -31,6 +31,9 @@ const db = {
     { id: '1', walletId: '1', categoryId: '1', amount: 50000, date: new Date().toISOString(), note: 'Ăn trưa', type: 'expense' },
     { id: '2', walletId: '2', categoryId: '4', amount: 20000000, date: new Date(Date.now() - 86400000 * 2).toISOString(), note: 'Lương tháng', type: 'income' },
     { id: '3', walletId: '1', categoryId: '3', amount: 15000, date: new Date(Date.now() - 86400000).toISOString(), note: 'Vé xe buýt', type: 'expense' },
+  ],
+  budgets: [
+    { id: '1', categoryId: 'all', amount: 10000000, month: new Date().toISOString().slice(0, 7), isRecurring: true }
   ]
 };
 
@@ -142,6 +145,56 @@ app.delete('/api/transactions/:id', (req, res) => {
       wallet.balance += change;
     }
     db.transactions.splice(txIndex, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Not found' });
+  }
+});
+
+
+// Budgets
+app.get('/api/budgets', (req, res) => {
+  res.json(db.budgets);
+});
+
+app.post('/api/budgets', (req, res) => {
+  const { categoryId, amount, month, isRecurring } = req.body;
+  
+  // Check if budget already exists for this category and month
+  const existingIndex = db.budgets.findIndex(b => b.categoryId === categoryId && b.month === month);
+  if (existingIndex > -1) {
+    db.budgets[existingIndex] = { ...db.budgets[existingIndex], amount: Number(amount), isRecurring: Boolean(isRecurring) };
+    return res.json(db.budgets[existingIndex]);
+  }
+
+  const newBudget = {
+    id: String(Date.now()),
+    categoryId,
+    amount: Number(amount),
+    month,
+    isRecurring: Boolean(isRecurring)
+  };
+  db.budgets.push(newBudget);
+  res.json(newBudget);
+});
+
+app.put('/api/budgets/:id', (req, res) => {
+  const { id } = req.params;
+  const { amount, isRecurring } = req.body;
+  const idx = db.budgets.findIndex(b => b.id === id);
+  if (idx !== -1) {
+    db.budgets[idx] = { ...db.budgets[idx], amount: Number(amount), isRecurring: Boolean(isRecurring) };
+    res.json(db.budgets[idx]);
+  } else {
+    res.status(404).json({ error: 'Budget not found' });
+  }
+});
+
+app.delete('/api/budgets/:id', (req, res) => {
+  const { id } = req.params;
+  const idx = db.budgets.findIndex(b => b.id === id);
+  if (idx !== -1) {
+    db.budgets.splice(idx, 1);
     res.json({ success: true });
   } else {
     res.status(404).json({ error: 'Not found' });

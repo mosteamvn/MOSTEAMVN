@@ -4,6 +4,7 @@ import { Wallet, Category, TransactionType } from '../types';
 import { DynamicIcon } from './DynamicIcon';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
+import { addTransaction } from '../lib/api';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -115,30 +116,25 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
     
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const wallet = wallets.find(w => w.id === walletId);
+      if (!wallet) throw new Error('Không tìm thấy ví');
+
+      await addTransaction({
           type,
           amount: finalAmount,
           categoryId,
           walletId,
           note,
           date: new Date(date).toISOString()
-        })
-      });
+      }, wallet.balance);
       
-      if (res.ok) {
-        toast.success('Thêm giao dịch thành công!');
-        setExpression('0');
-        setNote('');
-        onSuccess();
-        onClose();
-      } else {
-        toast.error('Thêm giao dịch thất bại');
-      }
-    } catch (err) {
-      toast.error('Có lỗi xảy ra');
+      toast.success('Thêm giao dịch thành công!');
+      setExpression('0');
+      setNote('');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error('Có lỗi: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -330,7 +326,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
       {/* Custom Keypad */}
       <div 
         className={cn(
-          "bg-white dark:bg-slate-950 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-6 pt-2 transition-transform duration-300 fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl",
+          "bg-white dark:bg-slate-950 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-6 pt-2 transition-transform duration-300 absolute bottom-0 left-0 right-0 z-50 rounded-t-3xl",
           showKeypad ? "translate-y-0" : "translate-y-full hidden"
         )}
       >
