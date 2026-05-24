@@ -1,0 +1,6 @@
+{
+  "name": "Money Lover Clone",
+  "description": "A personal finance management web app with dashboard, transactions, categorized budgets, and statistics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
