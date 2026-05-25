@@ -133,8 +133,8 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
   });
 
   return (
-    <div className="p-5 space-y-5">
-      <header className="py-2 mb-2 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md z-10 flex items-center justify-between gap-2">
+    <div className="px-5 pb-5 space-y-5">
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex items-center justify-between gap-2 border-b border-slate-100/50 dark:border-slate-800/10 mb-2">
         {!showSearch ? (
           <>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Giao dịch</h1>

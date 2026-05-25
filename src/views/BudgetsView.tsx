@@ -1,6 +1,6 @@
 import { useState, useEffect, FormEvent } from 'react';
 import toast from 'react-hot-toast';
-import { Target, ChevronLeft, Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Target, ChevronLeft, Plus, Edit2, Trash2, X, Delete } from 'lucide-react';
 import { Budget, Category, Transaction } from '../types';
 import { ViewState } from '../App';
 import { formatCurrency } from '../lib/utils';
@@ -26,6 +26,63 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
   const [formAmount, setFormAmount] = useState('');
   const [formCategoryId, setFormCategoryId] = useState('all');
   const [formRecurring, setFormRecurring] = useState(true);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const [expression, setExpression] = useState('0');
+
+  // Keypad logic
+  const handleKeypadPress = (val: string) => {
+    if (expression === '0' && !['+', '-', '*', '/'].includes(val) && val !== '000') {
+      setExpression(val);
+      return;
+    }
+
+    if (val === 'C') {
+      setExpression('0');
+      return;
+    }
+
+    if (val === 'DEL') {
+      if (expression.length > 1) {
+        setExpression(expression.slice(0, -1));
+      } else {
+        setExpression('0');
+      }
+      return;
+    }
+
+    // Prevent consecutive operators
+    const lastChar = expression.slice(-1);
+    const isOperator = ['+', '-', '*', '/'].includes(val);
+    const lastIsOperator = ['+', '-', '*', '/'].includes(lastChar);
+    
+    if (isOperator && lastIsOperator) {
+      setExpression(expression.slice(0, -1) + val);
+      return;
+    }
+
+    setExpression(prev => prev + val);
+  };
+
+  const getCalculatedAmount = () => {
+    try {
+      let evalExpr = expression;
+      if (['+', '-', '*', '/'].includes(evalExpr.slice(-1))) {
+        evalExpr = evalExpr.slice(0, -1);
+      }
+      if (!evalExpr) return 0;
+      
+      const calcFunc = new Function('return ' + evalExpr);
+      const result = calcFunc();
+      return isNaN(result) ? 0 : result;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  const formatExpression = (exp: string) => {
+    let disp = exp.replace(/\*/g, ' x ').replace(/\//g, ' ÷ ').replace(/\+/g, ' + ').replace(/\-/g, ' - ');
+    return disp.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
 
   const currentMonthStr = new Date().toISOString().slice(0, 7);
   const currentMonthDate = new Date();
@@ -41,7 +98,9 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formAmount || isNaN(Number(formAmount)) || Number(formAmount) <= 0) {
+    const finalAmount = getCalculatedAmount();
+
+    if (finalAmount <= 0) {
       toast.error('Vui lòng nhập số tiền hợp lệ');
       return;
     }
@@ -49,7 +108,7 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
     try {
       await addBudget({
         categoryId: formCategoryId,
-        amount: Number(formAmount),
+        amount: finalAmount,
         month: currentMonthStr,
         isRecurring: formRecurring
       } as Omit<Budget, 'id'>);
@@ -75,14 +134,17 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
     if (budget) {
       setEditingBudget(budget);
       setFormAmount(budget.amount.toString());
+      setExpression(budget.amount.toString());
       setFormCategoryId(budget.categoryId);
       setFormRecurring(budget.isRecurring);
     } else {
       setEditingBudget(null);
-      setFormAmount('');
+      setFormAmount('0');
+      setExpression('0');
       setFormCategoryId('all');
       setFormRecurring(true);
     }
+    setShowKeypad(false);
     setIsModalOpen(true);
   };
 
@@ -117,7 +179,7 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
 
   return (
     <div className="flex flex-col h-full bg-[#F3F4F6] dark:bg-slate-900 pb-20">
-      <header className="flex items-center justify-between p-4 bg-white dark:bg-slate-950 sticky top-0 z-10 shadow-sm border-b border-slate-100 dark:border-slate-800">
+      <header className="flex items-center justify-between p-4 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md sticky top-0 z-30 shadow-sm border-b border-slate-100/50 dark:border-slate-800/10">
         <button onClick={() => setActiveView('profile')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
           <ChevronLeft size={24} />
         </button>
@@ -215,17 +277,32 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
             </header>
             
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div className="bg-white dark:bg-slate-950 rounded-2xl p-4 shadow-sm border border-slate-50 dark:border-slate-800 space-y-4">
+              <div className="bg-white dark:bg-slate-950 rounded-2xl p-4 shadow-sm border border-slate-50 dark:border-slate-800 space-y-4 animate-all duration-300">
                 
-                <div className="space-y-1.5 border-b border-slate-50 dark:border-slate-800 pb-3">
+                <div 
+                  className="space-y-1.5 border-b border-slate-50 dark:border-slate-800 pb-3 cursor-pointer select-none"
+                  onClick={() => setShowKeypad(true)}
+                >
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Số tiền (₫)</label>
-                  <input
-                    type="number"
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    placeholder="VD: 5,000,000"
-                    className="w-full text-2xl font-bold bg-transparent outline-none px-1 text-slate-900 dark:text-white"
-                  />
+                  <div className="flex items-center justify-between px-1">
+                    <span 
+                      className={cn(
+                        "text-2xl font-bold bg-transparent outline-none flex-1 py-1 min-h-[40px] flex items-center",
+                        expression === '0' || !expression ? "text-slate-400 dark:text-slate-600" : "text-slate-900 dark:text-white"
+                      )}
+                    >
+                      {expression === '0' || !expression ? "0" : formatExpression(expression)}
+                    </span>
+                    {expression !== '0' && expression !== '' && (
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setExpression('0'); setShowKeypad(true); }} 
+                        className="p-1 rounded-full bg-slate-200 dark:bg-slate-705 text-slate-500"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1.5 border-b border-slate-50 dark:border-slate-800 pb-3">
@@ -243,7 +320,7 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
                 </div>
 
                 <div className="pt-1 flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-medium">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-medium pb-1.5 border-b border-transparent">
                      <DynamicIcon name="RotateCcw" size={18} className="text-slate-400" />
                      Lặp lại hàng tháng
                   </div>
@@ -257,6 +334,57 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
                     <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#1DBF73]"></div>
                   </label>
                 </div>
+
+                {/* Custom Keypad (Inline inside the card) */}
+                {showKeypad && (
+                  <div className="bg-[#FAFBFB] dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/85 pb-3.5 pt-3 rounded-b-2xl transition-all duration-300 -mx-4 -mb-4">
+                    {/* Keypad Grid - Standard clean 5-row flat grid layout, compact height */}
+                    <div className="grid grid-cols-4 gap-1.5 px-3.5 h-[178px]">
+                       {/* Row 1 */}
+                       <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-base font-bold">C</button>
+                       <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">÷</button>
+                       <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">×</button>
+                       <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] flex items-center justify-center">
+                         <Delete size={18} />
+                       </button>
+
+                       {/* Row 2 */}
+                       <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">7</button>
+                       <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">8</button>
+                       <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">9</button>
+                       <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">-</button>
+
+                       {/* Row 3 */}
+                       <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">4</button>
+                       <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">5</button>
+                       <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">6</button>
+                       <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">+</button>
+
+                       {/* Row 4 */}
+                       <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">1</button>
+                       <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">2</button>
+                       <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">3</button>
+                       <button 
+                         type="button" 
+                         onClick={() => {
+                           if (['+', '-', '*', '/'].some(op => expression.includes(op)) && getCalculatedAmount() > 0) {
+                             setExpression(getCalculatedAmount().toString());
+                           } else {
+                             setShowKeypad(false);
+                           }
+                         }} 
+                         className="row-span-2 h-full bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center transition-colors select-none"
+                       >
+                         {['+', '-', '*', '/'].some(op => expression.includes(op)) ? '=' : 'XONG'}
+                       </button>
+
+                       {/* Row 5 */}
+                       <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">0</button>
+                       <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-xs font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">000</button>
+                       <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 pb-1 flex items-center justify-center">.</button>
+                    </div>
+                  </div>
+                )}
 
               </div>
 

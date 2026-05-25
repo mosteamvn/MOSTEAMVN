@@ -123,7 +123,7 @@ export default function MoneyInsiderView({ transactions, setActiveView }: MoneyI
 
   return (
     <div className="flex flex-col h-full bg-[#1e1b4b] pb-20">
-      <header className="flex items-center justify-between p-4 sticky top-0 z-10">
+      <header className="flex items-center justify-between p-4 bg-[#1e1b4b]/95 backdrop-blur-md sticky top-0 z-30 border-b border-indigo-950/40 shadow-sm">
         <button onClick={() => setActiveView('statistics')} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-white">
           <ChevronLeft size={24} />
         </button>

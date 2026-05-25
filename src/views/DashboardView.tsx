@@ -39,8 +39,8 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
   }, [searchQuery, transactions]);
 
   return (
-    <div className="p-5 space-y-6">
-      <header className="flex justify-between items-center py-2 gap-4">
+    <div className="px-5 pb-5 space-y-6">
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex justify-between items-center gap-4 border-b border-slate-100/50 dark:border-slate-800/10">
         {!isSearching ? (
           <>
             <div>

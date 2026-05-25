@@ -197,7 +197,7 @@ export default function App() {
   if (!user) {
     return (
       <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
-        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 min-h-screen shadow-xl relative overflow-hidden">
+        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 h-screen shadow-xl relative overflow-hidden flex flex-col">
           <LoginView />
           <Toaster position="top-center" />
         </div>
@@ -208,7 +208,7 @@ export default function App() {
   if (hasPin && isAppLocked) {
     return (
       <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
-        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 min-h-screen shadow-xl relative overflow-hidden">
+        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 h-screen shadow-xl relative overflow-hidden flex flex-col">
           <PinLockView mode="unlock" onUnlock={() => setIsAppLocked(false)} />
           <Toaster position="top-center" />
         </div>
@@ -228,7 +228,7 @@ export default function App() {
 
   return (
     <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen text-slate-800 dark:text-slate-100 font-sans">
-      <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 min-h-screen shadow-xl relative overflow-hidden flex flex-col">
+      <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 h-screen shadow-xl relative overflow-hidden flex flex-col">
         
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto pb-20">

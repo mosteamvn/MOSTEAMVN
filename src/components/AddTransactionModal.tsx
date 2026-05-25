@@ -22,7 +22,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showKeypad, setShowKeypad] = useState(true);
+  const [showKeypad, setShowKeypad] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
         setCategoryId(typeCategories[0].id);
       }
       setExpression('0');
-      setShowKeypad(true);
+      setShowKeypad(false);
     }
   }, [isOpen, wallets, categories, type]);
 
@@ -144,7 +144,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
     <div className="absolute inset-0 z-50 flex flex-col bg-[#F3F4F6] dark:bg-slate-900 animate-in slide-in-from-bottom-full duration-300">
       
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-950">
+      <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-950 sticky top-0 z-20 shrink-0 border-b border-slate-100 dark:border-slate-900">
         <button onClick={onClose} className="text-slate-600 dark:text-slate-300 font-medium text-[15px]">
           Huỷ
         </button>
@@ -307,6 +307,57 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
               </div>
 
             </div>
+
+            {/* Custom Keypad (Inline inside the card) */}
+            {showKeypad && (
+              <div className="bg-[#FAFBFB] dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/85 pb-3.5 pt-3 rounded-b-2xl transition-all duration-300">
+                {/* Keypad Grid - Standard clean 5-row flat grid layout, compact height */}
+                <div className="grid grid-cols-4 gap-1.5 px-3.5 h-[178px]">
+                   {/* Row 1 */}
+                   <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-base font-bold">C</button>
+                   <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">÷</button>
+                   <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">×</button>
+                   <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] flex items-center justify-center">
+                     <Delete size={18} />
+                   </button>
+
+                   {/* Row 2 */}
+                   <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">7</button>
+                   <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">8</button>
+                   <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">9</button>
+                   <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">-</button>
+
+                   {/* Row 3 */}
+                   <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">4</button>
+                   <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">5</button>
+                   <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">6</button>
+                   <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">+</button>
+
+                   {/* Row 4 */}
+                   <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">1</button>
+                   <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">2</button>
+                   <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">3</button>
+                   <button 
+                     type="button" 
+                     onClick={() => {
+                       if (['+', '-', '*', '/'].some(op => expression.includes(op)) && getCalculatedAmount() > 0) {
+                         setExpression(getCalculatedAmount().toString());
+                       } else {
+                         setShowKeypad(false);
+                       }
+                     }} 
+                     className="row-span-2 h-full bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center transition-colors select-none"
+                   >
+                     {['+', '-', '*', '/'].some(op => expression.includes(op)) ? '=' : 'XONG'}
+                   </button>
+
+                   {/* Row 5 */}
+                   <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">0</button>
+                   <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-xs font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">000</button>
+                   <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 pb-1 flex items-center justify-center">.</button>
+                </div>
+              </div>
+            )}
           </div>
           
           <button 
@@ -320,75 +371,6 @@ export default function AddTransactionModal({ isOpen, onClose, wallets, categori
           >
             {isSubmitting ? 'Đang lưu...' : 'Lưu'}
           </button>
-        </div>
-      </div>
-
-      {/* Custom Keypad */}
-      <div 
-        className={cn(
-          "bg-white dark:bg-slate-950 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-6 pt-2 transition-transform duration-300 absolute bottom-0 left-0 right-0 z-50 rounded-t-3xl",
-          showKeypad ? "translate-y-0" : "translate-y-full hidden"
-        )}
-      >
-        {/* Quick Amount Suggestion row */}
-        <div className="flex gap-2 px-4 py-2 overflow-x-auto hide-scrollbar mb-2">
-          {['40000', '30000', '20000', '50000', '100000'].map(val => (
-            <button
-              key={val}
-              type="button"
-              onClick={() => setExpression(val)}
-              className="px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800 text-[15px] text-slate-700 dark:text-slate-300 whitespace-nowrap"
-            >
-              {Number(val).toLocaleString()}
-            </button>
-          ))}
-        </div>
-
-        {/* Keypad Grid */}
-        <div className="grid grid-cols-4 gap-2 px-4 h-64">
-           {/* Row 1 */}
-           <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-xl font-medium">C</button>
-           <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-2xl font-medium">÷</button>
-           <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-2xl font-medium">×</button>
-           <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] flex items-center justify-center">
-             <Delete size={24} />
-           </button>
-
-           {/* Row 2 */}
-           <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">7</button>
-           <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">8</button>
-           <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">9</button>
-           <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-4xl font-light pb-1">-</button>
-
-           {/* Row 3 */}
-           <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">4</button>
-           <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">5</button>
-           <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">6</button>
-           <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-3xl font-medium">+</button>
-
-           {/* Row 4 & 5 combined handling */}
-           <div className="col-span-3 grid grid-cols-3 gap-2">
-             <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">1</button>
-             <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">2</button>
-             <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">3</button>
-             <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-2xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">0</button>
-             <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">000</button>
-             <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-3xl font-medium text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 pb-2">.</button>
-           </div>
-           
-           <button 
-             type="button" 
-             onClick={() => {
-               if (['+', '-', '*', '/'].some(op => expression.includes(op))) {
-                 setExpression(getCalculatedAmount().toString());
-               } else {
-                 setShowKeypad(false);
-               }
-             }} 
-             className="row-span-2 bg-[#1DBF73] text-white rounded-xl text-[17px] font-bold shadow-sm"
-           >
-             {['+', '-', '*', '/'].some(op => expression.includes(op)) ? '=' : 'XONG'}
-           </button>
         </div>
       </div>
       

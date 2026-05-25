@@ -195,6 +195,53 @@ export const deleteBudget = async (id: string) => {
   }
 }
 
+// Wallet Operations
+export const addWallet = async (wallet: Omit<Wallet, 'id'>) => {
+  try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('Not logged in');
+    await setDoc(doc(collection(db, 'wallets')), {
+      ...wallet,
+      userId,
+      createdAt: Date.now()
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, 'wallets');
+  }
+}
+
+export const updateWallet = async (id: string, data: Partial<Wallet>) => {
+  try {
+    await updateDoc(doc(db, 'wallets', id), data);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, 'wallets');
+  }
+}
+
+export const deleteWallet = async (id: string) => {
+  try {
+    const txSnapshot = await getDocs(query(collection(db, 'transactions'), where('walletId', '==', id)));
+    if (!txSnapshot.empty) {
+      throw new Error('Không thể xoá ví đang có giao dịch');
+    }
+    
+    // Check if it's the only wallet of the user
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('Not logged in');
+    const walletsSnapshot = await getDocs(query(collection(db, 'wallets'), where('userId', '==', userId)));
+    if (walletsSnapshot.size <= 1) {
+      throw new Error('Không thể xoá ví duy nhất của bạn');
+    }
+    
+    await deleteDoc(doc(db, 'wallets', id));
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('Không thể')) {
+      throw err;
+    }
+    handleFirestoreError(err, OperationType.DELETE, 'wallets');
+  }
+}
+
 // Initial Data Population
 export const initializeUserData = async (userId: string) => {
   console.log('initializeUserData: starting for', userId);
