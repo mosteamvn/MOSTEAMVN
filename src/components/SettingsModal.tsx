@@ -122,7 +122,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               <DynamicIcon name="Settings" size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Cài đặt ứng dụng</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white uppercase">Cài đặt ứng dụng</h2>
               <p className="text-slate-400 text-xs font-medium">Tùy chỉnh giao diện & cấu hình cảnh báo</p>
             </div>
           </div>

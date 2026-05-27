@@ -100,50 +100,55 @@ export default function CategoriesView({ categories, onDataChange, setActiveView
   };
 
   return (
-    <div className="px-5 pb-5 space-y-5 flex flex-col h-full absolute inset-0 bg-slate-50 dark:bg-slate-950 z-50 animate-in slide-in-from-right duration-300">
-      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
+    <div className={cn(
+      "flex flex-col absolute inset-0 bg-slate-50 dark:bg-slate-950 animate-in slide-in-from-right duration-300",
+      isModalOpen ? "z-[50]" : "z-30"
+    )}>
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setActiveView('profile')} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Nhóm giao dịch</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Nhóm giao dịch</h1>
         </div>
         <button onClick={handleAdd} className="p-2 bg-[#1DBF73] text-white rounded-full shadow-md shadow-[#1DBF73]/30 hover:scale-105 transition-transform">
           <Plus size={18} />
         </button>
       </header>
 
-      <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-2xl shrink-0">
-        <button
-          onClick={() => setActiveTab('expense')}
-          className={cn(
-            "flex-1 py-2 text-sm font-bold rounded-xl transition-all",
-            activeTab === 'expense' ? "bg-white dark:bg-slate-950 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"
-          )}
-        >
-          Chi tiêu
-        </button>
-        <button
-          onClick={() => setActiveTab('income')}
-          className={cn(
-            "flex-1 py-2 text-sm font-bold rounded-xl transition-all",
-            activeTab === 'income' ? "bg-white dark:bg-slate-950 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"
-          )}
-        >
-          Thu nhập
-        </button>
-        <button
-          onClick={() => setActiveTab('debt')}
-          className={cn(
-            "flex-1 py-2 text-sm font-bold rounded-xl transition-all",
-            activeTab === 'debt' ? "bg-white dark:bg-slate-950 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"
-          )}
-        >
-          Vay/Nợ
-        </button>
+      <div className="px-5 pt-4 shrink-0">
+        <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-2xl">
+          <button
+            onClick={() => setActiveTab('expense')}
+            className={cn(
+              "flex-1 py-2 text-sm font-bold rounded-xl transition-all",
+              activeTab === 'expense' ? "bg-white dark:bg-slate-950 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"
+            )}
+          >
+            Chi tiêu
+          </button>
+          <button
+            onClick={() => setActiveTab('income')}
+            className={cn(
+              "flex-1 py-2 text-sm font-bold rounded-xl transition-all",
+              activeTab === 'income' ? "bg-white dark:bg-slate-950 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"
+            )}
+          >
+            Thu nhập
+          </button>
+          <button
+            onClick={() => setActiveTab('debt')}
+            className={cn(
+              "flex-1 py-2 text-sm font-bold rounded-xl transition-all",
+              activeTab === 'debt' ? "bg-white dark:bg-slate-950 shadow-sm text-slate-900 dark:text-white" : "text-slate-500"
+            )}
+          >
+            Vay/Nợ
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto -mx-5 px-5 pb-20">
+      <div className="flex-1 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-4">
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
           {tree.length > 0 ? (
             tree.map(node => renderNode(node))

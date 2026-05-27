@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { Target, ChevronLeft, Plus, Edit2, Trash2, X, Delete } from 'lucide-react';
 import { Budget, Category, Transaction } from '../types';
@@ -84,6 +84,15 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
     return disp.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
+  const expenseCategories = useMemo(() => {
+    return categories.filter(c => c && c.type === 'expense');
+  }, [categories]);
+
+  // Simplified flat list for debugging
+  const flattenedCategoryOptions = useMemo(() => {
+    return expenseCategories.map(c => ({ id: c.id, name: c.name, level: 0 }));
+  }, [expenseCategories]);
+
   const currentMonthStr = new Date().toISOString().slice(0, 7);
   const currentMonthDate = new Date();
   
@@ -159,7 +168,12 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
     if (b.categoryId === 'all') {
       spent = expensesThisMonth.reduce((sum, t) => sum + t.amount, 0);
     } else {
-      spent = expensesThisMonth.filter(t => t.categoryId === b.categoryId).reduce((sum, t) => sum + t.amount, 0);
+      const subCategoryIds = categories
+        .filter(c => c.parentId === b.categoryId)
+        .map(c => c.id);
+      spent = expensesThisMonth
+        .filter(t => t.categoryId === b.categoryId || subCategoryIds.includes(t.categoryId))
+        .reduce((sum, t) => sum + t.amount, 0);
     }
     
     const percentage = b.amount > 0 ? Math.min((spent / b.amount) * 100, 100) : 0;
@@ -178,18 +192,21 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
   const activeBudgets = budgets.filter(b => b.month === currentMonthStr || b.isRecurring);
 
   return (
-    <div className="flex flex-col h-full bg-[#F3F4F6] dark:bg-slate-900 pb-20">
-      <header className="flex items-center justify-between p-4 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md sticky top-0 z-30 shadow-sm border-b border-slate-100/50 dark:border-slate-800/10">
+    <div className={cn(
+      "flex flex-col absolute inset-0 bg-[#F3F4F6] dark:bg-slate-900 animate-in slide-in-from-right duration-300",
+      isModalOpen ? "z-[50]" : "z-30"
+    )}>
+      <header className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md sticky top-0 z-30 shadow-sm border-b border-slate-100/50 dark:border-slate-800/10">
         <button onClick={() => setActiveView('profile')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
           <ChevronLeft size={24} />
         </button>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white relative top-0.5">Ngân sách</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white relative top-0.5 uppercase">Ngân sách</h2>
         <button onClick={() => openForm()} className="p-2 -mr-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-[#1DBF73]">
           <Plus size={24} />
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-[calc(env(safe-area-inset-bottom)+6.5rem)]">
         {isLoading ? (
           <div className="flex justify-center py-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1DBF73]"></div>
@@ -270,13 +287,13 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
           <div className="mt-auto bg-[#F3F4F6] dark:bg-slate-900 rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom-full duration-300">
             <header className="flex items-center justify-between p-4 bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 px-5 relative">
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 py-2 -ml-2 transition-colors z-10 text-[15px] font-medium">Hủy</button>
-              <h2 className="text-[17px] font-bold text-slate-900 dark:text-white absolute inset-0 flex items-center justify-center pointer-events-none">
+              <h2 className="text-[17px] font-bold text-slate-900 dark:text-white absolute inset-0 flex items-center justify-center pointer-events-none uppercase">
                 {editingBudget ? 'Sửa ngân sách' : 'Tạo ngân sách'}
               </h2>
               <div className="w-8"></div>
             </header>
             
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
               <div className="bg-white dark:bg-slate-950 rounded-2xl p-4 shadow-sm border border-slate-50 dark:border-slate-800 space-y-4 animate-all duration-300">
                 
                 <div 
@@ -305,6 +322,72 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
                   </div>
                 </div>
 
+                {/* Custom Keypad - Fixed at bottom of screen with shortcuts */}
+                {showKeypad && (
+                  <div className="fixed inset-x-0 bottom-0 z-[60] bg-white dark:bg-slate-900 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] border-t border-slate-100 dark:border-slate-800 pb-safe pt-2 transition-all duration-300 animate-in slide-in-from-bottom">
+                    {/* Shortcuts Row */}
+                    <div className="flex items-center gap-2 px-4 mb-3 overflow-x-auto no-scrollbar py-1">
+                      {[500000, 1000000, 2000000, 5000000, 10000000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setExpression(amt.toString())}
+                          className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap active:bg-slate-200 transition-colors"
+                        >
+                          {new Intl.NumberFormat('vi-VN').format(amt)}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Keypad Grid */}
+                    <div className="grid grid-cols-4 gap-2 px-4 h-[280px] pb-4">
+                       {/* Row 1 */}
+                       <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-2xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">C</button>
+                       <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">÷</button>
+                       <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">×</button>
+                       <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] flex items-center justify-center transition-colors active:bg-slate-200">
+                         <Delete size={28} />
+                       </button>
+
+                       {/* Row 2 */}
+                       <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">7</button>
+                       <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">8</button>
+                       <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">9</button>
+                       <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">-</button>
+
+                       {/* Row 3 */}
+                       <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">4</button>
+                       <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">5</button>
+                       <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">6</button>
+                       <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">+</button>
+
+                       {/* Row 4 */}
+                       <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">1</button>
+                       <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">2</button>
+                       <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">3</button>
+                       <button 
+                         type="button" 
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           if (['+', '-', '*', '/'].some(op => expression.includes(op)) && getCalculatedAmount() > 0) {
+                             setExpression(getCalculatedAmount().toString());
+                           } else {
+                             setShowKeypad(false);
+                           }
+                         }} 
+                         className="row-span-2 h-full bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-2xl text-lg font-extrabold shadow-sm flex items-center justify-center transition-colors select-none active:bg-emerald-700"
+                       >
+                         {['+', '-', '*', '/'].some(op => expression.includes(op)) ? '=' : 'XONG'}
+                       </button>
+
+                       {/* Row 5 */}
+                       <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">0</button>
+                       <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 transition-colors active:bg-slate-200">000</button>
+                       <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 pb-1 flex items-center justify-center transition-colors active:bg-slate-200">.</button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5 border-b border-slate-50 dark:border-slate-800 pb-3">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Nhóm áp dụng</label>
                   <select 
@@ -313,8 +396,10 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
                     className="w-full p-2 bg-slate-50 dark:bg-slate-900 rounded-xl outline-none font-medium text-slate-900 dark:text-slate-100"
                   >
                     <option value="all">Tất cả chi tiêu</option>
-                    {categories.filter(c => c.type === 'expense').map(c => (
-                       <option key={c.id} value={c.id}>{c.name}</option>
+                    {flattenedCategoryOptions.map(opt => (
+                      <option key={opt.id} value={opt.id}>
+                        {'\u00A0'.repeat(opt.level * 4)}{opt.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -335,56 +420,6 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
                   </label>
                 </div>
 
-                {/* Custom Keypad (Inline inside the card) */}
-                {showKeypad && (
-                  <div className="bg-[#FAFBFB] dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/85 pb-3.5 pt-3 rounded-b-2xl transition-all duration-300 -mx-4 -mb-4">
-                    {/* Keypad Grid - Standard clean 5-row flat grid layout, compact height */}
-                    <div className="grid grid-cols-4 gap-1.5 px-3.5 h-[178px]">
-                       {/* Row 1 */}
-                       <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-base font-bold">C</button>
-                       <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">÷</button>
-                       <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">×</button>
-                       <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] flex items-center justify-center">
-                         <Delete size={18} />
-                       </button>
-
-                       {/* Row 2 */}
-                       <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">7</button>
-                       <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">8</button>
-                       <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">9</button>
-                       <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">-</button>
-
-                       {/* Row 3 */}
-                       <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">4</button>
-                       <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">5</button>
-                       <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">6</button>
-                       <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">+</button>
-
-                       {/* Row 4 */}
-                       <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">1</button>
-                       <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">2</button>
-                       <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">3</button>
-                       <button 
-                         type="button" 
-                         onClick={() => {
-                           if (['+', '-', '*', '/'].some(op => expression.includes(op)) && getCalculatedAmount() > 0) {
-                             setExpression(getCalculatedAmount().toString());
-                           } else {
-                             setShowKeypad(false);
-                           }
-                         }} 
-                         className="row-span-2 h-full bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center transition-colors select-none"
-                       >
-                         {['+', '-', '*', '/'].some(op => expression.includes(op)) ? '=' : 'XONG'}
-                       </button>
-
-                       {/* Row 5 */}
-                       <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">0</button>
-                       <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-xs font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50">000</button>
-                       <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800/50 pb-1 flex items-center justify-center">.</button>
-                    </div>
-                  </div>
-                )}
 
               </div>
 

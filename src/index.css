@@ -1,6 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -15,5 +24,14 @@
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+/* Prevent iOS user zoom on focused input fields */
+@media screen and (max-width: 768px) {
+  input:not(.text-xl):not(.text-2xl):not(.text-3xl):not(.text-4xl),
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }

@@ -13,6 +13,7 @@ interface ProfileViewProps {
 
 export default function ProfileView({ setActiveView }: ProfileViewProps) {
   const { user, logout } = useAuth();
+  const isAdmin = user?.email === 'mosteamvn@gmail.com';
   const [pinFlow, setPinFlow] = useState<'setup' | 'change' | 'disable' | null>(null);
   const [showNotif, setShowNotif] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
@@ -32,7 +33,7 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
   const securityOptions = !hasPin ? [
     { 
       icon: 'Lock', 
-      label: 'Bật mã PIN bảo mật', 
+      label: 'Đặt mã pin', 
       color: '#10b981',
       badge: 'Chưa kích hoạt',
       badgeColor: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
@@ -68,8 +69,8 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
 
   return (
     <div className="px-5 pb-5 space-y-6">
-      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex items-center justify-center border-b border-slate-100/50 dark:border-slate-800/10 mb-2">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Cá nhân</h1>
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 -mx-5 px-5 flex items-center justify-center border-b border-slate-100/50 dark:border-slate-800/10 mb-2">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Cá nhân</h1>
       </header>
 
       <div className="flex flex-col items-center justify-center p-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-50 dark:border-slate-800">
@@ -132,6 +133,15 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
             </button>
           ))}
         </div>
+        {!hasPin ? (
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-1 leading-relaxed font-semibold">
+            🍀 <span className="text-slate-405 dark:text-slate-500">Trường hợp muốn đổi mã PIN:</span> Sau khi đặt thành công, tùy chọn <span className="text-blue-500 font-bold">"Thay đổi mã PIN"</span> sẽ xuất hiện ngay tại đây để bạn cập nhật bất cứ lúc nào.
+          </p>
+        ) : (
+          <p className="text-[11px] text-[#1DBF73] dark:text-[#1DBF73]/80 pl-1 leading-relaxed font-semibold">
+            ✔ Mã PIN đã kích hoạt. Bạn có thể sử dụng các tùy chọn trên để đổi hoặc tắt mã khóa.
+          </p>
+        )}
       </div>
 
       {/* Other Non-PIN Settings */}
@@ -151,6 +161,40 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
           ))}
         </div>
       </div>
+
+      {/* Admin Panel Link */}
+      {isAdmin && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-rose-500 uppercase tracking-widest pl-1 mb-1">Hệ thống</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 border-rose-100 dark:border-rose-950/20 overflow-hidden divide-y divide-slate-50 dark:divide-slate-800/50 p-1.5">
+            <button 
+              onClick={() => setActiveView('admin' as any)} 
+              className="w-full p-3.5 flex items-center justify-between hover:bg-rose-50/20 dark:hover:bg-rose-950/10 rounded-lg transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-rose-500/10 text-rose-500 shadow-sm transition-transform group-hover:scale-105">
+                    <DynamicIcon name="ShieldAlert" size={18} />
+                 </div>
+                 <span className="font-bold text-sm text-slate-900 dark:text-slate-100">Phân quyền Thành viên</span>
+              </div>
+              <DynamicIcon name="ChevronRight" size={16} className="text-rose-400 group-hover:text-rose-500" />
+            </button>
+
+            <button 
+              onClick={() => setActiveView('premium' as any)} 
+              className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-lg transition-colors group animate-pulse"
+            >
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500 shadow-sm transition-transform group-hover:scale-105">
+                    <DynamicIcon name="Sparkles" size={18} />
+                 </div>
+                 <span className="font-bold text-sm text-slate-900 dark:text-slate-100">Quản lý Nabe Account</span>
+              </div>
+              <DynamicIcon name="ChevronRight" size={16} className="text-emerald-500 group-hover:text-emerald-600" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <button onClick={logout} className="w-full p-4 flex items-center justify-center gap-2 text-rose-500 font-bold bg-white dark:bg-slate-900 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors shadow-sm border border-slate-50 dark:border-slate-800">
         <DynamicIcon name="LogOut" size={18} />

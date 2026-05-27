@@ -207,7 +207,7 @@ export default function PinLockView({ mode, onUnlock, onSuccess, onCancel }: Pin
             )}
           </div>
           <div className="text-center space-y-1 mt-2">
-            <h1 className="text-xl font-bold tracking-tight text-white">{title}</h1>
+            <h1 className="text-xl font-bold tracking-tight text-white uppercase">{title}</h1>
             <p className="text-slate-400 text-xs font-medium max-w-[240px] leading-relaxed mx-auto">
               {subtitle}
             </p>

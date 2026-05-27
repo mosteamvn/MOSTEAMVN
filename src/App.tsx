@@ -10,21 +10,25 @@ import ProfileView from './views/ProfileView';
 import CategoriesView from './views/CategoriesView';
 import WalletsView from './views/WalletsView';
 import AddTransactionModal from './components/AddTransactionModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 import BudgetsView from './views/BudgetsView';
 import MoneyInsiderView from './views/MoneyInsiderView';
+import AdminView from './views/AdminView';
+import PremiumView from './views/PremiumView';
 import { useAuth } from './contexts/AuthContext';
 import LoginView from './views/LoginView';
 import { subscribeWallets, subscribeCategories, subscribeTransactions, subscribeBudgets, initializeUserData } from './lib/api';
 import PinLockView from './components/PinLockView';
 
-export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider';
+export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium';
 
 export default function App() {
   const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState<ViewState>('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isAppLocked, setIsAppLocked] = useState<boolean>(true);
 
   // Reset lock state when user logs out
@@ -96,6 +100,14 @@ export default function App() {
     }));
   }, [rawTransactions, categories, wallets]);
 
+  const highlightedView = useMemo(() => {
+    if (activeView === 'wallets') return 'profile';
+    if (activeView === 'categories') return 'profile';
+    if (activeView === 'budgets') return 'profile';
+    if (activeView === 'insider') return 'statistics';
+    return activeView;
+  }, [activeView]);
+
   // Alert notifications when spending reaches 80% or 90% of budget limit
   useEffect(() => {
     if (!user || budgets.length === 0 || transactions.length === 0) return;
@@ -115,8 +127,11 @@ export default function App() {
       if (b.categoryId === 'all') {
         spent = expensesThisMonth.reduce((sum, t) => sum + t.amount, 0);
       } else {
+        const subCategoryIds = categories
+          .filter(c => c.parentId === b.categoryId)
+          .map(c => c.id);
         spent = expensesThisMonth
-          .filter(t => t.categoryId === b.categoryId)
+          .filter(t => t.categoryId === b.categoryId || subCategoryIds.includes(t.categoryId))
           .reduce((sum, t) => sum + t.amount, 0);
       }
 
@@ -186,8 +201,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
-        <div className="flex items-center justify-center w-full max-w-md h-screen">
+      <div className="flex justify-center bg-slate-50 dark:bg-slate-950 min-h-[100dvh]">
+        <div className="flex items-center justify-center w-full h-[100dvh]">
            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
         </div>
       </div>
@@ -196,8 +211,8 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
-        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 h-screen shadow-xl relative overflow-hidden flex flex-col">
+      <div className="flex justify-center items-center bg-slate-50 dark:bg-slate-950 min-h-[100dvh] p-4">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col p-2 animate-in fade-in zoom-in-95 duration-350">
           <LoginView />
           <Toaster position="top-center" />
         </div>
@@ -207,8 +222,8 @@ export default function App() {
 
   if (hasPin && isAppLocked) {
     return (
-      <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen">
-        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 h-screen shadow-xl relative overflow-hidden flex flex-col">
+      <div className="flex justify-center items-center bg-slate-50 dark:bg-slate-950 min-h-[100dvh] p-4">
+        <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
           <PinLockView mode="unlock" onUnlock={() => setIsAppLocked(false)} />
           <Toaster position="top-center" />
         </div>
@@ -227,71 +242,101 @@ export default function App() {
   ];
 
   return (
-    <div className="flex justify-center bg-slate-100 dark:bg-slate-900 min-h-screen text-slate-800 dark:text-slate-100 font-sans">
-      <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 h-screen shadow-xl relative overflow-hidden flex flex-col">
+    <div className="w-full min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col items-center">
+      <div className="w-full max-w-5xl h-[100dvh] bg-slate-50 dark:bg-slate-950 md:shadow-lg relative overflow-hidden flex flex-col md:border-x md:border-slate-100 md:dark:border-slate-900">
         
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto pb-20">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-            </div>
-          ) : (
-            <>
-              {activeView === 'home' && <DashboardView wallets={wallets} transactions={transactions} setActiveView={setActiveView} />}
-              {activeView === 'transactions' && <TransactionsView transactions={transactions} onDataChange={fetchData} />}
-              {activeView === 'statistics' && <StatisticsView transactions={transactions} setActiveView={setActiveView} />}
-              {activeView === 'profile' && <ProfileView setActiveView={setActiveView} />}
-              {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
-              {activeView === 'wallets' && <WalletsView wallets={wallets} setActiveView={setActiveView} />}
-              {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
-              {activeView === 'insider' && <MoneyInsiderView transactions={transactions} setActiveView={setActiveView} />}
-            </>
-          )}
+          <div className="w-full h-full">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+              </div>
+            ) : (
+              <>
+                {activeView === 'home' && <DashboardView wallets={wallets} transactions={transactions} setActiveView={setActiveView} />}
+                {activeView === 'transactions' && (
+                  <TransactionsView 
+                    transactions={transactions} 
+                    onDataChange={fetchData} 
+                    onEditTransaction={(tx) => {
+                      setEditingTransaction(tx);
+                      setIsAddModalOpen(true);
+                    }}
+                  />
+                )}
+                {activeView === 'statistics' && <StatisticsView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} />}
+                {activeView === 'profile' && <ProfileView setActiveView={setActiveView} />}
+              </>
+            )}
+          </div>
         </main>
 
         {/* Bottom Navigation */}
-        <nav className="absolute bottom-0 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-safe pt-2 px-2 z-40">
-          <ul className="flex justify-between items-center h-14">
-            {navItems.map((item) => (
-              <li key={item.id} className="flex-1">
-                {item.special ? (
-                  <button 
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="w-full flex justify-center items-center -mt-6"
-                  >
-                    <div className="bg-[#1DBF73] text-white rounded-full p-3.5 border-4 border-slate-50 dark:border-slate-950 shadow-xl shadow-[#1DBF73]/30 hover:scale-105 active:scale-95 transition-transform">
-                      <item.icon size={24} />
-                    </div>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setActiveView(item.id as ViewState)}
-                    className={cn(
-                      "w-full flex flex-col items-center justify-center gap-1 transition-colors",
-                      activeView === item.id 
-                        ? "text-[#1DBF73]" 
-                        : "text-slate-400 hover:text-slate-900 dark:text-slate-500 dark:hover:text-slate-200"
-                    )}
-                  >
-                    <item.icon size={24} className={cn(activeView === item.id && "fill-[#1DBF73]/20")} strokeWidth={activeView === item.id ? 2.5 : 2} />
-                    <span className="text-[10px] font-bold">{item.label}</span>
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+        <nav className="absolute bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 px-4 z-40">
+          <div className="w-full">
+            <ul className="flex justify-between items-center h-14">
+              {navItems.map((item) => (
+                <li key={item.id} className="flex-1">
+                  {item.special ? (
+                    <button 
+                      onClick={() => {
+                        setEditingTransaction(null);
+                        setIsAddModalOpen(true);
+                      }}
+                      className="w-full flex justify-center items-center -mt-6"
+                    >
+                      <div className="bg-[#1DBF73] text-white rounded-full p-3.5 border-4 border-slate-100 dark:border-slate-900 shadow-xl shadow-[#1DBF73]/30 hover:scale-105 active:scale-95 transition-transform">
+                        <item.icon size={24} />
+                      </div>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setActiveView(item.id as ViewState)}
+                      className={cn(
+                        "w-full flex flex-col items-center justify-center gap-1 transition-colors",
+                        highlightedView === item.id 
+                          ? "text-[#1DBF73]" 
+                          : "text-slate-400 hover:text-slate-900 dark:text-slate-500 dark:hover:text-slate-200"
+                      )}
+                    >
+                      <item.icon size={24} className={cn(highlightedView === item.id && "fill-[#1DBF73]/20")} strokeWidth={highlightedView === item.id ? 2.5 : 2} />
+                      <span className="text-[10px] font-bold">{item.label}</span>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
+
+        {/* Fullscreen Overlay Views */}
+        {!isLoading && (
+          <>
+            {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
+            {activeView === 'wallets' && <WalletsView wallets={wallets} setActiveView={setActiveView} />}
+            {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
+            {activeView === 'insider' && <MoneyInsiderView transactions={transactions} setActiveView={setActiveView} />}
+            {activeView === 'admin' && <AdminView setActiveView={setActiveView} />}
+            {activeView === 'premium' && <PremiumView setActiveView={setActiveView} />}
+          </>
+        )}
 
         {/* Modals & Toasters */}
         <Toaster position="top-center" />
-        <AddTransactionModal 
-          isOpen={isAddModalOpen} 
-          onClose={() => setIsAddModalOpen(false)} 
-          wallets={wallets}
-          categories={categories}
-          onSuccess={fetchData}
-        />
+        <ErrorBoundary>
+          <AddTransactionModal 
+            isOpen={isAddModalOpen} 
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setEditingTransaction(null);
+            }} 
+            wallets={wallets}
+            categories={categories}
+            onSuccess={fetchData}
+            editingTransaction={editingTransaction}
+          />
+        </ErrorBoundary>
       </div>
     </div>
   );

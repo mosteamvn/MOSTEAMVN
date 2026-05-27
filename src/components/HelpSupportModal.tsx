@@ -98,7 +98,7 @@ export default function HelpSupportModal({ onClose }: HelpSupportModalProps) {
               <DynamicIcon name="HelpCircle" size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Trợ giúp & Hỗ trợ</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white uppercase">Trợ giúp & Hỗ trợ</h2>
               <p className="text-slate-400 text-xs font-medium">Tìm giải pháp hoặc gửi thắc mắc hỗ trợ</p>
             </div>
           </div>

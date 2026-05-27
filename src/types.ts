@@ -12,6 +12,7 @@ export interface Wallet {
   balance: number;
   color: string;
   icon: string;
+  isDefault?: boolean;
 }
 
 export interface Category {
@@ -42,3 +43,29 @@ export interface Transaction {
   category?: Category;
   wallet?: Wallet;
 }
+
+export interface PremiumProduct {
+  id: string;
+  name: string;
+  isSystem?: boolean;
+  createdAt: number;
+}
+
+export interface PremiumSubscription {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  productId: string;
+  productName: string;
+  durationDays: number;
+  purchasePrice: number;
+  purchaseDate: string;
+  bonusDays?: number;
+  source?: string;
+  notes?: string;
+  userUid?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+

@@ -17,10 +17,15 @@ interface CategoryModalProps {
 }
 
 const COMMON_ICONS = [
-  'Utensils', 'Coffee', 'ShoppingBag', 'ShoppingCart', 'Car', 'Bus', 'Train', 
-  'Plane', 'Home', 'Smartphone', 'Monitor', 'Gamepad', 'Headphones', 'Book',
-  'GraduationCap', 'Heart', 'Activity', 'Pill', 'Scissors', 'Shirt', 'Briefcase',
-  'FileText', 'CreditCard', 'Coins', 'PiggyBank', 'Gift', 'Smile', 'Star'
+  'Utensils', 'Coffee', 'Pizza', 'GlassWater', 'Wine', 'Cake', 'ChefHat',
+  'ShoppingBag', 'ShoppingCart', 'Tag', 'Gem', 'Shirt', 'Sparkles', 'Gift',
+  'Car', 'Bus', 'Train', 'Plane', 'Bike', 'Truck', 'Wrench',
+  'Home', 'Bed', 'Tv', 'Smartphone', 'Monitor', 'Wifi', 'Key',
+  'Gamepad', 'Headphones', 'Film', 'Music', 'Camera', 'BookOpen', 'Dumbbell',
+  'Heart', 'Smile', 'Activity', 'Pill', 'HeartPulse', 'Shield', 'Baby',
+  'GraduationCap', 'Briefcase', 'FileText', 'CreditCard', 'Coins', 'PiggyBank', 'Receipt',
+  'Users', 'Scissors', 'TrendingUp', 'LineChart', 'Cat', 'Dog', 'Flower',
+  'Umbrella', 'Star', 'Bell', 'MapPin', 'Mail', 'Award', 'AlertTriangle'
 ];
 
 const COMMON_COLORS = [
@@ -89,7 +94,7 @@ export default function CategoryModal({ isOpen, onClose, category, type, categor
   return (
     <div className="absolute inset-0 z-[60] flex flex-col bg-white dark:bg-slate-900 animate-in slide-in-from-bottom-full duration-300">
       <header className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white uppercase">
           {category ? 'Chỉnh sửa nhóm' : 'Thêm nhóm mới'}
         </h2>
         <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-500">
@@ -175,7 +180,7 @@ export default function CategoryModal({ isOpen, onClose, category, type, categor
 
         <div className="h-6"></div>
 
-        <div className="sticky bottom-0 bg-white dark:bg-slate-900 pt-4 pb-4 border-t border-slate-50 dark:border-slate-800 z-10 w-full mt-auto">
+        <div className="sticky bottom-0 bg-white dark:bg-slate-900 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-slate-50 dark:border-slate-800 z-10 w-full mt-auto mb-0">
           <button 
             type="submit"
             disabled={isSubmitting}

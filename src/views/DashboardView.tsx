@@ -40,7 +40,7 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
 
   return (
     <div className="px-5 pb-5 space-y-6">
-      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex justify-between items-center gap-4 border-b border-slate-100/50 dark:border-slate-800/10">
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 -mx-5 px-5 flex justify-between items-center gap-4 border-b border-slate-100/50 dark:border-slate-800/10">
         {!isSearching ? (
           <>
             <div>
@@ -56,9 +56,6 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
               >
                 <Search size={20} />
               </button>
-              <div className="w-11 h-11 bg-slate-200 rounded-full overflow-hidden border-2 border-slate-50 shadow-sm flex items-center justify-center">
-                <DynamicIcon name="User" className="text-slate-500" />
-              </div>
             </div>
           </>
         ) : (
@@ -152,10 +149,10 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
       {/* Wallets */}
       <section>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">Ví của tôi</h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white uppercase">Ví của tôi</h2>
           <button onClick={() => setActiveView('wallets')} className="text-[#1DBF73] text-xs font-bold uppercase tracking-wider hover:opacity-80 transition-opacity">Xem tất cả</button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {wallets.map(wallet => (
             <div 
               key={wallet.id} 
@@ -182,7 +179,7 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
       {/* Recent Transactions */}
       <section>
         <div className="flex justify-between items-end mb-4">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">Giao dịch gần đây</h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white uppercase">Giao dịch gần đây</h2>
           <button onClick={() => setActiveView('transactions')} className="text-slate-400 text-xs font-medium hover:text-[#1DBF73] transition-colors">Xem toàn bộ</button>
         </div>
         <div className="space-y-3">

@@ -2,7 +2,7 @@ import { useState, FormEvent } from 'react';
 import { ArrowLeft, Plus, X, Trash2, Check, Wallet as WalletIcon, CreditCard, Coins, Landmark, Banknote, PiggyBank, Delete } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Wallet } from '../types';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, cn } from '../lib/utils';
 import { DynamicIcon } from '../components/DynamicIcon';
 import { addWallet, updateWallet, deleteWallet } from '../lib/api';
 
@@ -31,6 +31,21 @@ const PRESET_ICONS = [
   'Landmark',
   'Banknote',
   'PiggyBank',
+  'Smartphone',
+  'Laptop',
+  'TrendingUp',
+  'Shield',
+  'Briefcase',
+  'Lock',
+  'Gift',
+  'QrCode',
+  'Users',
+  'Globe',
+  'Receipt',
+  'Sparkles',
+  'Store',
+  'Award',
+  'Activity'
 ];
 
 export default function WalletsView({ wallets, setActiveView }: WalletsViewProps) {
@@ -44,6 +59,7 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
   const [name, setName] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState(PRESET_ICONS[0]);
+  const [isDefault, setIsDefault] = useState(false);
   
   // Custom Keypad States for initial balance
   const [showKeypad, setShowKeypad] = useState(false);
@@ -55,6 +71,7 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
     setSelectedColor(PRESET_COLORS[0]);
     setSelectedIcon(PRESET_ICONS[0]);
     setBalanceExpression('0');
+    setIsDefault(wallets.length === 0);
     setShowKeypad(false);
     setIsModalOpen(true);
   };
@@ -65,6 +82,7 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
     setSelectedColor(wallet.color);
     setSelectedIcon(wallet.icon || PRESET_ICONS[0]);
     setBalanceExpression(wallet.balance.toString());
+    setIsDefault(wallet.isDefault === true);
     setShowKeypad(false);
     setIsModalOpen(true);
   };
@@ -134,23 +152,41 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
     const finalBalance = getCalculatedBalance();
 
     try {
+      let walletIdToSetDefault: string | undefined;
+
       if (editingWallet) {
         await updateWallet(editingWallet.id, {
           name: name.trim(),
           balance: finalBalance,
           color: selectedColor,
           icon: selectedIcon,
+          isDefault: isDefault,
         });
+        if (isDefault) {
+          walletIdToSetDefault = editingWallet.id;
+        }
         toast.success('Đã cập nhật thông tin ví');
       } else {
-        await addWallet({
+        const newId = await addWallet({
           name: name.trim(),
           balance: finalBalance,
           color: selectedColor,
           icon: selectedIcon,
+          isDefault: isDefault,
         });
+        if (isDefault && newId) {
+          walletIdToSetDefault = newId;
+        }
         toast.success('Đã thêm ví mới thành công');
       }
+
+      if (walletIdToSetDefault) {
+        const otherWallets = wallets.filter(w => w.id !== walletIdToSetDefault && w.isDefault);
+        for (const other of otherWallets) {
+          await updateWallet(other.id, { isDefault: false });
+        }
+      }
+
       setIsModalOpen(false);
     } catch (error: any) {
       toast.error(error.message || 'Lỗi lưu thông tin ví');
@@ -171,13 +207,16 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
   };
 
   return (
-    <div className="px-5 pb-5 space-y-5 flex flex-col h-full absolute inset-0 bg-slate-50 dark:bg-slate-950 z-50 animate-in slide-in-from-right duration-300">
-      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
+    <div className={cn(
+      "flex flex-col absolute inset-0 bg-slate-50 dark:bg-slate-950 animate-in slide-in-from-right duration-300",
+      isModalOpen ? "z-[50]" : "z-30"
+    )}>
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setActiveView('home')} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Ví của tôi</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Ví của tôi</h1>
         </div>
         <button 
           onClick={openAddModal}
@@ -187,14 +226,16 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
         </button>
       </header>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
-        <p className="text-slate-400 text-sm font-medium tracking-wide">Tổng số dư</p>
-        <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mt-1">
-          {formatCurrency(totalBalance)}
-        </h2>
+      <div className="px-5 pt-4 shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
+          <p className="text-slate-400 text-sm font-medium tracking-wide">Tổng số dư</p>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mt-1">
+            {formatCurrency(totalBalance)}
+          </h2>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-20 space-y-4">
+      <div className="flex-1 overflow-y-auto px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] space-y-4">
         {wallets.map(wallet => (
           <div 
             key={wallet.id} 
@@ -211,7 +252,14 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
                   <DynamicIcon name={wallet.icon || 'Wallet'} size={20} />
                 </div>
                 <div>
-                  <p className="text-white/80 text-xs font-bold uppercase tracking-wider">{wallet.name}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-white/80 text-xs font-bold uppercase tracking-wider">{wallet.name}</p>
+                    {wallet.isDefault && (
+                      <span className="bg-white/20 backdrop-blur-xs text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center shadow-xs">
+                        ⭐ Mặc định
+                      </span>
+                    )}
+                  </div>
                   <p className="font-bold text-lg leading-tight mt-0.5">{formatCurrency(wallet.balance)}</p>
                 </div>
               </div>
@@ -238,7 +286,7 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
               <div className="w-8"></div> {/* Spacer for symmetry */}
             </header>
 
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-5">
+            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800/60 space-y-4">
                 
                 {/* Tên ví */}
@@ -279,6 +327,72 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
                       </button>
                     )}
                   </div>
+
+                  {/* Inline Keyboard Container - Fixed at bottom of screen with shortcuts */}
+                  {showKeypad && (
+                    <div className="fixed inset-x-0 bottom-0 z-[60] bg-white dark:bg-slate-900 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] border-t border-slate-100 dark:border-slate-800 pb-safe pt-2 transition-all duration-300 animate-in slide-in-from-bottom">
+                      {/* Shortcuts Row */}
+                      <div className="flex items-center gap-2 px-4 mb-3 overflow-x-auto no-scrollbar py-1">
+                        {[500000, 1000000, 2000000, 5000000, 10000000].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setBalanceExpression(amt.toString())}
+                            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap active:bg-slate-200 transition-colors"
+                          >
+                            {new Intl.NumberFormat('vi-VN').format(amt)}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Keypad Grid */}
+                      <div className="grid grid-cols-4 gap-2 px-4 h-[280px] pb-4">
+                         {/* Row 1 */}
+                         <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-2xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">C</button>
+                         <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">÷</button>
+                         <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">×</button>
+                         <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] flex items-center justify-center transition-colors active:bg-slate-200">
+                           <Delete size={28} />
+                         </button>
+
+                         {/* Row 2 */}
+                         <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">7</button>
+                         <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">8</button>
+                         <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">9</button>
+                         <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">-</button>
+
+                         {/* Row 3 */}
+                         <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">4</button>
+                         <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">5</button>
+                         <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">6</button>
+                         <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-2xl text-[#1DBF73] text-3xl font-bold flex items-center justify-center transition-colors active:bg-slate-200">+</button>
+
+                         {/* Row 4 */}
+                         <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">1</button>
+                         <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">2</button>
+                         <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">3</button>
+                         <button 
+                           type="button" 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             if (['+', '-', '*', '/'].some(op => balanceExpression.includes(op)) && getCalculatedBalance() > 0) {
+                               setBalanceExpression(getCalculatedBalance().toString());
+                             } else {
+                               setShowKeypad(false);
+                             }
+                           }} 
+                           className="row-span-2 h-full bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-2xl text-lg font-extrabold shadow-sm flex items-center justify-center transition-colors select-none active:bg-emerald-700"
+                         >
+                           {['+', '-', '*', '/'].some(op => balanceExpression.includes(op)) ? '=' : 'XONG'}
+                         </button>
+
+                         {/* Row 5 */}
+                         <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">0</button>
+                         <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 transition-colors active:bg-slate-200">000</button>
+                         <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-2xl text-2xl font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800 pb-1 flex items-center justify-center transition-colors active:bg-slate-200">.</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Chọn biểu tượng */}
@@ -303,7 +417,7 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
                 </div>
 
                 {/* Chọn màu sắc vĩ */}
-                <div className="space-y-1.5 pb-1">
+                <div className="space-y-1.5 pb-3 border-b border-slate-100 dark:border-slate-800/60">
                   <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1 mb-1 block">Màu sắc</label>
                   <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
                     {PRESET_COLORS.map((hex) => (
@@ -322,55 +436,29 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
                   </div>
                 </div>
 
-                {/* Inline Keyboard Container */}
-                {showKeypad && (
-                  <div className="bg-[#FAFBFB] dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/85 pb-3.5 pt-3 rounded-b-2xl transition-all duration-300 -mx-4 -mb-4">
-                    <div className="grid grid-cols-4 gap-1.5 px-3.5 h-[178px]">
-                       {/* Row 1 */}
-                       <button type="button" onClick={() => handleKeypadPress('C')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-base font-bold">C</button>
-                       <button type="button" onClick={() => handleKeypadPress('/')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">÷</button>
-                       <button type="button" onClick={() => handleKeypadPress('*')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">×</button>
-                       <button type="button" onClick={() => handleKeypadPress('DEL')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] flex items-center justify-center">
-                         <Delete size={18} />
-                       </button>
-
-                       {/* Row 2 */}
-                       <button type="button" onClick={() => handleKeypadPress('7')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">7</button>
-                       <button type="button" onClick={() => handleKeypadPress('8')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">8</button>
-                       <button type="button" onClick={() => handleKeypadPress('9')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">9</button>
-                       <button type="button" onClick={() => handleKeypadPress('-')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">-</button>
-
-                       {/* Row 3 */}
-                       <button type="button" onClick={() => handleKeypadPress('4')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">4</button>
-                       <button type="button" onClick={() => handleKeypadPress('5')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">5</button>
-                       <button type="button" onClick={() => handleKeypadPress('6')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">6</button>
-                       <button type="button" onClick={() => handleKeypadPress('+')} className="bg-[#F3F4F6] dark:bg-slate-800 rounded-xl text-[#1DBF73] text-lg font-bold">+</button>
-
-                       {/* Row 4 */}
-                       <button type="button" onClick={() => handleKeypadPress('1')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">1</button>
-                       <button type="button" onClick={() => handleKeypadPress('2')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">2</button>
-                       <button type="button" onClick={() => handleKeypadPress('3')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">3</button>
-                       <button 
-                         type="button" 
-                         onClick={() => {
-                           if (['+', '-', '*', '/'].some(op => balanceExpression.includes(op)) && getCalculatedBalance() > 0) {
-                             setBalanceExpression(getCalculatedBalance().toString());
-                           } else {
-                             setShowKeypad(false);
-                           }
-                         }} 
-                         className="row-span-2 h-full bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center transition-colors select-none"
-                       >
-                         {['+', '-', '*', '/'].some(op => balanceExpression.includes(op)) ? '=' : 'XONG'}
-                       </button>
-
-                       {/* Row 5 */}
-                       <button type="button" onClick={() => handleKeypadPress('0')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">0</button>
-                       <button type="button" onClick={() => handleKeypadPress('000')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-xs font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850">000</button>
-                       <button type="button" onClick={() => handleKeypadPress('.')} className="bg-[#F9FAFB] dark:bg-slate-900 rounded-xl text-base font-bold text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-850 pb-1 flex items-center justify-center">.</button>
-                    </div>
+                {/* Đặt làm ví mặc định */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="space-y-0.5 max-w-[78%]">
+                    <label className="text-sm font-bold text-slate-900 dark:text-white">Ví mặc định</label>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Tự động chọn ví này khi ghi chép giao dịch</p>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setIsDefault(!isDefault)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                      isDefault ? "bg-[#1DBF73]" : "bg-slate-200 dark:bg-slate-800"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                        isDefault ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+
 
               </div>
 

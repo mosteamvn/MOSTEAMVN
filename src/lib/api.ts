@@ -3,7 +3,7 @@ import {
   collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, 
   query, where, onSnapshot, writeBatch, serverTimestamp
 } from 'firebase/firestore';
-import { Wallet, Category, Transaction, Budget } from '../types';
+import { Wallet, Category, Transaction, Budget, PremiumProduct, PremiumSubscription } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -114,6 +114,64 @@ export const deleteTransaction = async (tx: Transaction, walletBalance: number) 
   }
 }
 
+export const updateTransaction = async (
+  oldTx: Transaction,
+  newTx: Omit<Transaction, 'id' | 'category' | 'wallet'>,
+  oldWalletBalance: number,
+  newWalletBalance: number
+) => {
+  try {
+    const batch = writeBatch(db);
+    
+    // Update the transaction details
+    const txRef = doc(db, 'transactions', oldTx.id);
+    batch.update(txRef, {
+      type: newTx.type,
+      amount: newTx.amount,
+      categoryId: newTx.categoryId,
+      walletId: newTx.walletId,
+      note: newTx.note,
+      date: newTx.date,
+      updatedAt: Date.now()
+    });
+
+    // Revert old transaction effect on old wallet balance
+    let oldChange = oldTx.type === 'income' ? -oldTx.amount : oldTx.amount;
+    if (oldTx.type === 'debt') {
+      oldChange = ['9', '10'].includes(oldTx.categoryId) ? -oldTx.amount : oldTx.amount;
+    }
+
+    // Apply new transaction effect
+    let newChange = newTx.type === 'income' ? newTx.amount : -newTx.amount;
+    if (newTx.type === 'debt') {
+      newChange = ['9', '10'].includes(newTx.categoryId) ? newTx.amount : -newTx.amount;
+    }
+
+    if (oldTx.walletId === newTx.walletId) {
+      // Same wallet
+      const walletRef = doc(db, 'wallets', oldTx.walletId);
+      batch.update(walletRef, {
+        balance: oldWalletBalance + oldChange + newChange
+      });
+    } else {
+      // Different wallets
+      const oldWalletRef = doc(db, 'wallets', oldTx.walletId);
+      batch.update(oldWalletRef, {
+        balance: oldWalletBalance + oldChange
+      });
+
+      const newWalletRef = doc(db, 'wallets', newTx.walletId);
+      batch.update(newWalletRef, {
+        balance: newWalletBalance + newChange
+      });
+    }
+
+    await batch.commit();
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, 'transactions');
+  }
+};
+
 export const addCategory = async (cat: Omit<Category, 'id'>) => {
   try {
     const userId = auth.currentUser?.uid;
@@ -200,11 +258,13 @@ export const addWallet = async (wallet: Omit<Wallet, 'id'>) => {
   try {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('Not logged in');
-    await setDoc(doc(collection(db, 'wallets')), {
+    const docRef = doc(collection(db, 'wallets'));
+    await setDoc(docRef, {
       ...wallet,
       userId,
       createdAt: Date.now()
     });
+    return docRef.id;
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, 'wallets');
   }
@@ -314,3 +374,106 @@ export const initializeUserData = async (userId: string) => {
     throw err;
   }
 }
+
+export const getAllUsers = async () => {
+  try {
+    const q = query(collection(db, 'users'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as { id: string; email: string; role: string; createdAt: number }[];
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách người dùng:', err);
+    throw err;
+  }
+};
+
+export const updateUserRole = async (targetUserId: string, newRole: 'user' | 'admin') => {
+  try {
+    const userRef = doc(db, 'users', targetUserId);
+    await updateDoc(userRef, {
+      role: newRole
+    });
+  } catch (err) {
+    console.error('Lỗi khi cập nhật vai trò người dùng:', err);
+    throw err;
+  }
+};
+
+export const deleteUser = async (targetUserId: string) => {
+  try {
+    const userRef = doc(db, 'users', targetUserId);
+    await deleteDoc(userRef);
+  } catch (err) {
+    console.error('Lỗi khi xóa người dùng:', err);
+    throw err;
+  }
+};
+
+export const subscribePremiumProducts = (cb: (data: PremiumProduct[]) => void) => {
+  const q = query(collection(db, 'premium_products'));
+  return onSnapshot(q, (snapshot) => {
+    cb(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PremiumProduct)));
+  }, (err) => handleFirestoreError(err, OperationType.LIST, 'premium_products'));
+};
+
+export const addPremiumProduct = async (productName: string) => {
+  try {
+    const docId = productName.toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || String(Date.now());
+    const ref = doc(db, 'premium_products', docId);
+    await setDoc(ref, {
+      name: productName.trim(),
+      isSystem: false,
+      createdAt: Date.now()
+    });
+    return docId;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'premium_products');
+  }
+};
+
+export const subscribeAllPremiumSubscriptions = (cb: (data: PremiumSubscription[]) => void) => {
+  const q = query(collection(db, 'premium_subscriptions'));
+  return onSnapshot(q, (snapshot) => {
+    cb(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PremiumSubscription)));
+  }, (err) => handleFirestoreError(err, OperationType.LIST, 'premium_subscriptions'));
+};
+
+export const subscribeMyPremiumSubscriptions = (email: string, cb: (data: PremiumSubscription[]) => void) => {
+  const q = query(collection(db, 'premium_subscriptions'), where('email', '==', email.trim()));
+  return onSnapshot(q, (snapshot) => {
+    cb(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PremiumSubscription)));
+  }, (err) => handleFirestoreError(err, OperationType.LIST, 'premium_subscriptions'));
+};
+
+export const savePremiumSubscription = async (id: string, sub: Omit<PremiumSubscription, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: number }) => {
+  try {
+    const ref = doc(db, 'premium_subscriptions', id);
+    const existingSnap = await getDoc(ref);
+    const now = Date.now();
+    const payload = {
+      ...sub,
+      updatedAt: now,
+      createdAt: existingSnap.exists() ? (existingSnap.data()?.createdAt || now) : now
+    };
+    await setDoc(ref, payload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'premium_subscriptions');
+  }
+};
+
+export const deletePremiumSubscription = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, 'premium_subscriptions', id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, 'premium_subscriptions');
+  }
+};
+
+
+

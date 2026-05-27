@@ -130,7 +130,7 @@ export default function NotificationModal({ onClose }: NotificationModalProps) {
               <DynamicIcon name="Bell" size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Thông báo</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white uppercase">Thông báo</h2>
               <p className="text-slate-400 text-xs font-medium">
                 {unreadCount > 0 ? `Bạn có ${unreadCount} thông báo chưa đọc` : 'Không có thông báo mới'}
               </p>

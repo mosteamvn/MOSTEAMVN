@@ -1,0 +1,18 @@
+{
+  "short_name": "Nabe Budget",
+  "name": "Nabe's Budget App",
+  "description": "Quản lý chi tiêu cá nhân một cách thông minh và tiện lợi.",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "display": "standalone",
+  "orientation": "portrait"
+}

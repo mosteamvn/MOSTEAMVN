@@ -10,7 +10,7 @@ export default function LoginView() {
         <div className="-rotate-12 font-black text-4xl text-white">N'</div>
       </div>
       <div>
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Nabe's All<br/>in One</h1>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Nabe’s all-in-one</h1>
         <p className="text-slate-500 dark:text-slate-400 mt-3 max-w-xs mx-auto">
           Quản lý tài chính cá nhân thông minh, minh bạch và an toàn.
         </p>

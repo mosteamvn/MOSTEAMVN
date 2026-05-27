@@ -122,12 +122,12 @@ export default function MoneyInsiderView({ transactions, setActiveView }: MoneyI
   }, [transactions]);
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1b4b] pb-20">
-      <header className="flex items-center justify-between p-4 bg-[#1e1b4b]/95 backdrop-blur-md sticky top-0 z-30 border-b border-indigo-950/40 shadow-sm">
+    <div className="flex flex-col absolute inset-0 bg-[#1e1b4b] pb-[calc(env(safe-area-inset-bottom)+5.5rem)] z-30 animate-in slide-in-from-right duration-300">
+      <header className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-[#1e1b4b]/95 backdrop-blur-md sticky top-0 z-30 border-b border-indigo-950/40 shadow-sm">
         <button onClick={() => setActiveView('statistics')} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-white">
           <ChevronLeft size={24} />
         </button>
-        <h2 className="text-lg font-bold text-white relative top-0.5 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-white relative top-0.5 flex items-center gap-2 uppercase">
            <Sparkles size={18} className="text-indigo-400" />
            Money Insider
         </h2>

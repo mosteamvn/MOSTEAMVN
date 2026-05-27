@@ -1,42 +1,27 @@
 import { useState, useMemo } from 'react';
-import { format, isSameDay, isThisWeek, isThisMonth, isThisYear, isWithinInterval } from 'date-fns';
+import { format, isSameDay, isThisWeek, isThisMonth, isThisYear, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Transaction } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { DynamicIcon } from '../components/DynamicIcon';
+import { Filter, Search, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Trash2, Filter, Search, Download } from 'lucide-react';
-import { deleteTransaction } from '../lib/api';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
   onDataChange: () => void;
+  onEditTransaction?: (tx: Transaction) => void;
 }
 
 type FilterType = 'all' | 'day' | 'week' | 'month' | 'year' | 'custom';
 
-export default function TransactionsView({ transactions, onDataChange }: TransactionsViewProps) {
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+export default function TransactionsView({ transactions, onDataChange, onEditTransaction }: TransactionsViewProps) {
   const [filterType, setFilterType] = useState<FilterType>('month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const handleDelete = async (tx: Transaction) => {
-    setIsDeleting(tx.id);
-    try {
-      if (!tx.wallet) return;
-      await deleteTransaction(tx, tx.wallet.balance);
-      toast.success('Đã xoá giao dịch');
-      // No need to onDataChange, onSnapshot will handle it.
-    } catch (e: any) {
-      toast.error('Có lỗi xảy ra: ' + e.message);
-    } finally {
-      setIsDeleting(null);
-    }
-  };
 
   const filteredTransactionsList = useMemo(() => {
     return transactions.filter(tx => {
@@ -132,12 +117,50 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
     }
   });
 
+  const { openingBalance, closingBalance, netChange } = useMemo(() => {
+    let periodStart: Date | null = null;
+    const now = new Date();
+
+    if (filterType === 'day') {
+      periodStart = startOfDay(now);
+    } else if (filterType === 'week') {
+      periodStart = startOfWeek(now, { weekStartsOn: 1 });
+    } else if (filterType === 'month') {
+      periodStart = startOfMonth(now);
+    } else if (filterType === 'year') {
+      periodStart = startOfYear(now);
+    } else if (filterType === 'custom') {
+      if (customStartDate) {
+        periodStart = new Date(customStartDate);
+      }
+    }
+
+    const getSignedAmount = (tx: Transaction) => {
+      const isPositive = tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId));
+      return isPositive ? tx.amount : -tx.amount;
+    };
+
+    let opening = 0;
+    if (filterType === 'all') {
+      opening = 0;
+    } else if (periodStart) {
+      opening = transactions
+        .filter(tx => new Date(tx.date) < periodStart!)
+        .reduce((sum, tx) => sum + getSignedAmount(tx), 0);
+    }
+
+    const net = filteredTransactionsList.reduce((sum, tx) => sum + getSignedAmount(tx), 0);
+    const closing = opening + net;
+
+    return { openingBalance: opening, closingBalance: closing, netChange: net };
+  }, [transactions, filteredTransactionsList, filterType, customStartDate]);
+
   return (
     <div className="px-5 pb-5 space-y-5">
-      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-5 pb-3 -mx-5 px-5 flex items-center justify-between gap-2 border-b border-slate-100/50 dark:border-slate-800/10 mb-2">
+      <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 -mx-5 px-5 flex items-center justify-between gap-2 border-b border-slate-100/50 dark:border-slate-800/10 mb-2">
         {!showSearch ? (
           <>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Giao dịch</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Giao dịch</h1>
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleExportCSV}
@@ -169,7 +192,7 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm..."
-              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-slate-900 dark:text-white"
+              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-slate-900 dark:text-white placeholder:font-mono placeholder:text-xs placeholder:font-bold placeholder:tracking-wider placeholder:text-slate-500/60 dark:placeholder:text-slate-400/40"
             />
             <button onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
               <DynamicIcon name="X" size={16} />
@@ -229,6 +252,37 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
         </div>
       )}
 
+      {/* Balance Summary Section */}
+      <div className="bg-white dark:bg-slate-900/40 rounded-2xl p-4 shadow-sm border border-slate-100/80 dark:border-slate-800/50 space-y-3 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#1DBF73]/5 blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none"></div>
+        <div className="space-y-2.5 relative z-10">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Số dư đầu</span>
+            <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatCurrency(openingBalance)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Số dư cuối</span>
+            <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatCurrency(closingBalance)}</span>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            <div className="text-right">
+              <p className={cn(
+                "text-lg font-black tracking-tight",
+                netChange >= 0 ? "text-[#1DBF73]" : "text-slate-900 dark:text-white"
+              )}>
+                {netChange > 0 ? '+' : ''}{formatCurrency(netChange)}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="pt-2 text-center relative z-10">
+          <button className="text-[11px] font-bold text-[#f59e0b] hover:opacity-80 transition-all uppercase tracking-wider bg-[#f59e0b]/10 px-4 py-1.5 rounded-full">
+            Xem báo cáo cho giai đoạn này
+          </button>
+        </div>
+      </div>
+
       {groupedTransactions.length === 0 ? (
         <div className="text-center py-20 text-slate-400">
           <div className="bg-slate-100 dark:bg-slate-800 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -246,11 +300,15 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
               </h3>
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-50 dark:divide-slate-800/50">
                 {group.items.map(tx => (
-                  <div key={tx.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                  <div 
+                    key={tx.id} 
+                    onClick={() => onEditTransaction?.(tx)}
+                    className="p-4 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 active:scale-[0.99] transition-all cursor-pointer select-none"
+                  >
                     <div className="flex items-center gap-3">
                       <div 
                         className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
-                        style={{ backgroundColor: tx.category?.color + '15', color: tx.category?.color }}
+                        style={tx.category?.color ? { backgroundColor: tx.category.color + '15', color: tx.category.color } : {}}
                       >
                         <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                       </div>
@@ -270,14 +328,6 @@ export default function TransactionsView({ transactions, onDataChange }: Transac
                           {formatCurrency(tx.amount)}
                         </p>
                       </div>
-                      <button 
-                        onClick={() => handleDelete(tx)}
-                        disabled={isDeleting === tx.id}
-                        className="text-slate-300 hover:text-rose-500 transition-colors p-2 -mr-2 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        title="Delete Transaction"
-                      >
-                         <Trash2 size={16} />
-                      </button>
                     </div>
                   </div>
                 ))}

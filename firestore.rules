@@ -125,5 +125,44 @@ service cloud.firestore {
       allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidBudget(incoming()) && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId;
       allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
+
+    function isValidPremiumProduct(data) {
+      return data.keys().hasAll(['name', 'createdAt'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 128
+        && (data.get('isSystem', null) == null || data.get('isSystem', null) is bool)
+        && data.createdAt is number;
+    }
+
+    match /premium_products/{productId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(productId) && (request.method != 'delete' ? isValidPremiumProduct(incoming()) : true);
+    }
+
+    function isValidPremiumSubscription(data) {
+      return data.keys().hasAll(['fullName', 'email', 'phone', 'productId', 'productName', 'durationDays', 'purchasePrice', 'purchaseDate', 'createdAt', 'updatedAt'])
+        && data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 128
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 128
+        && data.phone is string && data.phone.size() <= 32
+        && data.productId is string && data.productId.size() <= 128
+        && data.productName is string && data.productName.size() <= 128
+        && data.durationDays is number
+        && data.purchasePrice is number
+        && data.purchaseDate is string && data.purchaseDate.size() <= 32
+        && (data.get('bonusDays', null) == null || data.get('bonusDays', null) is number)
+        && (data.get('source', null) == null || data.get('source', null) is string)
+        && (data.get('notes', null) == null || data.get('notes', null) is string)
+        && (data.get('userUid', null) == null || data.get('userUid', null) is string)
+        && data.createdAt is number
+        && data.updatedAt is number;
+    }
+
+    match /premium_subscriptions/{subscriptionId} {
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        existing().email == request.auth.token.email || 
+        existing().userUid == request.auth.uid
+      );
+      allow create, update, delete: if isAdmin() && isValidId(subscriptionId) && (request.method != 'delete' ? isValidPremiumSubscription(incoming()) : true);
+    }
   }
 }

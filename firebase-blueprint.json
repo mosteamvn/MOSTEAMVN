@@ -70,6 +70,40 @@
         "createdAt": { "type": "number" }
       },
       "required": ["userId", "categoryId", "amount", "month", "createdAt"]
+    },
+    "PremiumProduct": {
+      "title": "PremiumProduct",
+      "description": "An online premium subscription product managed by admins",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "isSystem": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "PremiumSubscription": {
+      "title": "PremiumSubscription",
+      "description": "An online account subscription purchased by a customer",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "durationDays": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "purchaseDate": { "type": "string" },
+        "bonusDays": { "type": "number" },
+        "source": { "type": "string" },
+        "notes": { "type": "string" },
+        "userUid": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["fullName", "email", "phone", "productId", "productName", "durationDays", "purchasePrice", "purchaseDate", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -92,6 +126,14 @@
     "/budgets/{budgetId}": {
       "schema": { "$ref": "#/entities/Budget" },
       "description": "Stores monthly budgets."
+    },
+    "/premium_products/{productId}": {
+      "schema": { "$ref": "#/entities/PremiumProduct" },
+      "description": "Stores system and custom premium products."
+    },
+    "/premium_subscriptions/{subscriptionId}": {
+      "schema": { "$ref": "#/entities/PremiumSubscription" },
+      "description": "Stores details of premium account buyers and remaining dates."
     }
   }
 }
