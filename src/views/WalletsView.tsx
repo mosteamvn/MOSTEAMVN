@@ -213,7 +213,7 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
     )}>
       <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => setActiveView('home')} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">
+          <button onClick={() => setActiveView('profile')} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Ví của tôi</h1>

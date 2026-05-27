@@ -38,6 +38,18 @@ export default function App() {
     }
   }, [user]);
 
+  // Khởi tạo theme tối/sáng dựa trên localStorage hoặc tùy chọn hệ thống
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, []);
+
   const hasPin = useMemo(() => {
     if (!user) return false;
     return !!localStorage.getItem(`app_pin_${user.uid}`);

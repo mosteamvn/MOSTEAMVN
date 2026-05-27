@@ -271,7 +271,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                   </div>
                   <button
                     onClick={handleResetNotificationsCache}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 border border-slate-250 dark:border-slate-750 text-slate-700 dark:text-slate-300 font-extrabold text-xs rounded-xl h-9 hover:underline transition-all"
+                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 border border-slate-250 dark:border-slate-750 text-slate-700 dark:text-slate-300 font-extrabold text-[10px] whitespace-nowrap shrink-0 rounded-xl h-8 hover:underline transition-all"
                   >
                     Xóa Cache
                   </button>
