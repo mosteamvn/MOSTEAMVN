@@ -76,10 +76,62 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
   const selectedWallet = useMemo(() => (wallets || []).find(w => w && w.id === walletId), [wallets, walletId]);
   const selectedCategory = useMemo(() => (categories || []).find(c => c && c.id === categoryId), [categories, categoryId]);
 
-  // Simplified flat list for debugging
-  const flattenedCategories = useMemo(() => {
-    return filteredCategories.map(c => ({ ...c, level: 0 }));
+  const categoryTree = useMemo(() => {
+    const map = new Map<string, Category & { children: any[] }>();
+    filteredCategories.forEach(c => map.set(c.id, { ...c, children: [] }));
+    const roots: (Category & { children: any[] })[] = [];
+    map.forEach(c => {
+      if (c.parentId && map.has(c.parentId)) {
+        map.get(c.parentId)!.children.push(map.get(c.id)!);
+      } else {
+        roots.push(c);
+      }
+    });
+    return roots;
   }, [filteredCategories]);
+
+  const renderCategoryNode = (node: Category & { children: any[] }, level = 0) => {
+    const isSelected = categoryId === node.id;
+    return (
+      <div key={node.id} className="flex flex-col">
+        <button
+          type="button"
+          onClick={() => {
+            setCategoryId(node.id);
+            setShowCategorySelector(false);
+          }}
+          className={cn(
+            "flex items-center justify-between p-3.5 bg-white dark:bg-slate-950 border-b border-slate-50 dark:border-slate-800/10 hover:bg-slate-50 dark:hover:bg-slate-900/35 transition-all select-none text-left w-full",
+            level > 0 ? "pl-14" : ""
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {level > 0 && <div className="w-4 h-px bg-slate-200 dark:bg-slate-700 -ml-8"></div>}
+            <div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0"
+              style={node.color ? { backgroundColor: `${node.color}15`, color: node.color } : {}}
+            >
+              <DynamicIcon name={node.icon} size={20} />
+            </div>
+            <span className={cn(
+              "text-[15px] flex-1 text-left",
+              level === 0 ? "font-bold text-slate-900 dark:text-white" : "font-semibold text-slate-600 dark:text-slate-300"
+            )}>
+              {node.name}
+            </span>
+          </div>
+          {isSelected && (
+            <DynamicIcon name="Check" size={20} className="text-[#1DBF73] shrink-0" />
+          )}
+        </button>
+        {node.children.length > 0 && (
+          <div className="flex flex-col border-l border-slate-100 dark:border-slate-800 ml-8">
+            {node.children.map(child => renderCategoryNode(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -567,41 +619,14 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
              </button>
              <h2 className="text-[17px] font-bold text-slate-900 dark:text-white uppercase">Chọn nhóm</h2>
           </header>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-             {filteredCategories.length === 0 && (
+          <div className="flex-1 overflow-y-auto p-4 shrink-0">
+             {filteredCategories.length === 0 ? (
                 <div className="text-center text-slate-500 py-10 text-[15px]">Không có nhóm nào</div>
+             ) : (
+                <div className="bg-white dark:bg-slate-950 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+                  {categoryTree.map(node => renderCategoryNode(node))}
+                </div>
              )}
-             
-             {flattenedCategories.map(cat => (
-               <button
-                 key={cat.id}
-                 type="button"
-                 onClick={() => {
-                   setCategoryId(cat.id);
-                   setShowCategorySelector(false);
-                 }}
-                 className={cn(
-                   "flex items-center w-full gap-4 p-4 rounded-xl bg-white dark:bg-slate-950 shadow-sm border border-slate-50 dark:border-slate-800 transition-all active:scale-95",
-                   cat.level > 0 && "ml-4 w-[calc(100%-1rem)]"
-                 )}
-               >
-                 <div 
-                   className="w-10 h-10 rounded-full flex items-center justify-center shadow-sm shrink-0"
-                   style={cat.color ? { backgroundColor: `${cat.color}20`, color: cat.color } : {}}
-                 >
-                   <DynamicIcon name={cat.icon} size={20} />
-                 </div>
-                 <span className={cn(
-                   "text-[15px] flex-1 text-left",
-                   cat.level === 0 ? "font-bold text-slate-900 dark:text-white" : "font-medium text-slate-600 dark:text-slate-300"
-                 )}>
-                   {cat.name}
-                 </span>
-                 {categoryId === cat.id && (
-                   <DynamicIcon name="Check" size={20} className="text-[#1DBF73]" />
-                 )}
-               </button>
-             ))}
           </div>
         </div>
       )}
