@@ -63,6 +63,10 @@ export interface PremiumSubscription {
   purchaseDate: string;
   bonusDays?: number;
   source?: string;
+  contactChannel?: string;
+  refundStatus?: 'none' | 'pending' | 'completed';
+  refundAmount?: number;
+  refundDate?: string;
   notes?: string;
   userUid?: string;
   createdAt: number;

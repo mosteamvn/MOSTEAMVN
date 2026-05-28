@@ -28,6 +28,91 @@ const DEFAULT_PRODUCTS = [
   'Google Drive 5TB'
 ];
 
+const SOURCES = ['STK Khánh', 'Nabe', 'Tự đăng ký', 'Khác'];
+const CONTACT_CHANNELS = ['Zalo', 'Facebook', 'Telegram', 'Email', 'Khác'];
+
+const getProductIconAndStyles = (productName: string) => {
+  const name = productName.toLowerCase();
+  
+  if (name.includes('youtube')) {
+    return {
+      iconName: 'Youtube',
+      bgClass: 'bg-red-500/10 text-red-600 dark:text-red-400',
+      borderClass: 'border-red-200/50 dark:border-red-950/40'
+    };
+  }
+  
+  if (name.includes('netflix')) {
+    return {
+      iconName: 'Tv',
+      bgClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+      borderClass: 'border-rose-200/50 dark:border-rose-950/40'
+    };
+  }
+  
+  if (name.includes('capcut')) {
+    return {
+      iconName: 'Scissors',
+      bgClass: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+      borderClass: 'border-cyan-200/50 dark:border-cyan-950/40'
+    };
+  }
+  
+  if (name.includes('canva')) {
+    return {
+      iconName: 'Palette',
+      bgClass: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+      borderClass: 'border-violet-200/50 dark:border-violet-950/40'
+    };
+  }
+  
+  if (name.includes('drive') || name.includes('storage') || name.includes('google')) {
+    return {
+      iconName: 'Cloud',
+      bgClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      borderClass: 'border-blue-200/50 dark:border-blue-950/40'
+    };
+  }
+  
+  if (name.includes('spotify') || name.includes('music')) {
+    return {
+      iconName: 'Music',
+      bgClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      borderClass: 'border-emerald-250 dark:border-[#1E293B]/60'
+    };
+  }
+
+  if (name.includes('zoom') || name.includes('meet') || name.includes('team')) {
+    return {
+      iconName: 'Video',
+      bgClass: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+      borderClass: 'border-sky-200/50 dark:border-sky-950/40'
+    };
+  }
+
+  if (name.includes('gpt') || name.includes('ai') || name.includes('gemini') || name.includes('claude') || name.includes('open-ai')) {
+    return {
+      iconName: 'Sparkles',
+      bgClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      borderClass: 'border-amber-200/50 dark:border-amber-950/40'
+    };
+  }
+
+  if (name.includes('zippo') || name.includes('fire')) {
+    return {
+      iconName: 'Flame',
+      bgClass: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+      borderClass: 'border-orange-200/50 dark:border-orange-950/40'
+    };
+  }
+
+  return {
+    iconName: 'Shield',
+    bgClass: 'bg-emerald-500/10 text-[#1DBF73]',
+    borderClass: 'border-emerald-150 dark:border-[#1E293B]/60'
+  };
+};
+
 const formatNumberWithCommas = (value: string | number) => {
   const clean = String(value).replace(/\D/g, '');
   if (!clean) return '';
@@ -67,6 +152,10 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
   const [formPurchaseDate, setFormPurchaseDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [formBonusDays, setFormBonusDays] = useState<number>(0);
   const [formSource, setFormSource] = useState('');
+  const [formContactChannel, setFormContactChannel] = useState('');
+  const [formRefundStatus, setFormRefundStatus] = useState<'none' | 'pending' | 'completed'>('none');
+  const [formRefundAmount, setFormRefundAmount] = useState<string>('0');
+  const [formRefundDate, setFormRefundDate] = useState<string>('');
   const [formNotes, setFormNotes] = useState('');
 
   // Sync real-time data
@@ -251,7 +340,11 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
     setFormPurchasePrice('0');
     setFormPurchaseDate(format(new Date(), 'yyyy-MM-dd'));
     setFormBonusDays(0);
-    setFormSource('');
+    setFormSource(SOURCES[0]);
+    setFormContactChannel(CONTACT_CHANNELS[0]);
+    setFormRefundStatus('none');
+    setFormRefundAmount('0');
+    setFormRefundDate('');
     setFormNotes('');
     
     setSelectedSub(null);
@@ -270,7 +363,11 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
     setFormPurchasePrice(formatNumberWithCommas(sub.purchasePrice));
     setFormPurchaseDate(sub.purchaseDate);
     setFormBonusDays(sub.bonusDays || 0);
-    setFormSource(sub.source || '');
+    setFormSource(sub.source || SOURCES[0]);
+    setFormContactChannel(sub.contactChannel || CONTACT_CHANNELS[0]);
+    setFormRefundStatus(sub.refundStatus || 'none');
+    setFormRefundAmount(formatNumberWithCommas(sub.refundAmount || 0));
+    setFormRefundDate(sub.refundDate || '');
     setFormNotes(sub.notes || '');
 
     setSelectedSub(sub);
@@ -326,6 +423,10 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
         purchaseDate: formPurchaseDate,
         bonusDays: Number(formBonusDays) || 0,
         source: formSource.trim(),
+        contactChannel: formContactChannel.trim(),
+        refundStatus: formRefundStatus,
+        refundAmount: Number(String(formRefundAmount).replace(/,/g, '')) || 0,
+        refundDate: formRefundDate,
         notes: formNotes.trim(),
         userUid: '' // Optional reference matching users
       };
@@ -517,6 +618,7 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
               {filteredSubList.map((sub) => {
                 const isEnding = sub.remainingDays <= 7;
                 const isExpired = sub.remainingDays <= 0;
+                const prodInfo = getProductIconAndStyles(sub.productName);
 
                 return (
                   <button
@@ -533,12 +635,13 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                   >
                     <div className="flex gap-3.5 items-center min-w-0 flex-1">
                       <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-xs",
+                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm transition-all",
+                        prodInfo.bgClass,
                         isEnding 
-                          ? "bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-900/50" 
-                          : "bg-emerald-500/10 text-[#1DBF73] border-emerald-150 dark:border-emerald-950/20"
+                          ? "border-rose-500/80 dark:border-rose-900/80 animate-pulse border-2" 
+                          : prodInfo.borderClass
                       )}>
-                        <DynamicIcon name={isEnding ? "ShieldAlert" : "Shield"} size={18} />
+                        <DynamicIcon name={prodInfo.iconName} size={18} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight truncate">
@@ -552,12 +655,22 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                       </div>
                     </div>
 
-                    {/* Remaining Days Badge */}
-                    <div className="shrink-0 text-right">
+                    {/* Refund Badge & Days Remaining */}
+                    <div className="shrink-0 flex flex-col items-end gap-1.5 justify-center min-w-[90px]">
+                      {sub.refundStatus && sub.refundStatus !== 'none' && (
+                        <span className={cn(
+                          "inline-flex items-center justify-center text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs border text-center h-5 leading-none",
+                          sub.refundStatus === 'completed' 
+                            ? "bg-rose-50 text-rose-600 border-rose-200"
+                            : "bg-amber-50 text-amber-500 border-amber-200"
+                        )}>
+                          {sub.refundStatus === 'completed' ? 'Đã Refund' : 'Chờ Refund'}
+                        </span>
+                      )}
                       <span className={cn(
-                        "text-[11.5px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-xs",
+                        "inline-flex items-center justify-center text-[10.5px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-xs text-center h-6 leading-none",
                         isExpired 
-                          ? "bg-rose-605 text-white" 
+                          ? "bg-rose-600 text-white" 
                           : isEnding 
                             ? "bg-rose-500/15 text-rose-600 border border-rose-500/30 animate-pulse" 
                             : sub.remainingDays <= 15
@@ -720,34 +833,44 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                     </button>
                   </div>
                 ) : (
-                  <select
-                    value={formProductName}
-                    onChange={(e) => {
-                      setFormProductName(e.target.value);
-                      setFormProductId(e.target.value);
-                    }}
-                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] cursor-pointer"
-                  >
-                    {allProductsList.map(name => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={formProductName}
+                      onChange={(e) => {
+                        setFormProductName(e.target.value);
+                        setFormProductId(e.target.value);
+                      }}
+                      className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 pr-10 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all cursor-pointer appearance-none"
+                    >
+                      {allProductsList.map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400">
+                      <DynamicIcon name="ChevronsUpDown" size={16} />
+                    </div>
+                  </div>
                 )}
               </div>
 
               {/* Duration select */}
               <div className="space-y-1.5 flex flex-col">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Gói sản phẩm (ngày)</label>
-                <select
-                  value={formDurationDays}
-                  onChange={(e) => setFormDurationDays(Number(e.target.value))}
-                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] cursor-pointer"
-                >
-                  <option value={30}>Gói 30 ngày</option>
-                  <option value={90}>Gói 90 ngày (3 tháng)</option>
-                  <option value={180}>Gói 180 ngày (6 tháng)</option>
-                  <option value={360}>Gói 360 ngày (1 năm)</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={formDurationDays}
+                    onChange={(e) => setFormDurationDays(Number(e.target.value))}
+                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 pr-10 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all cursor-pointer appearance-none"
+                  >
+                    <option value={30}>Gói 30 ngày</option>
+                    <option value={90}>Gói 90 ngày (3 tháng)</option>
+                    <option value={180}>Gói 180 ngày (6 tháng)</option>
+                    <option value={360}>Gói 360 ngày (1 năm)</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400">
+                    <DynamicIcon name="ChevronsUpDown" size={16} />
+                  </div>
+                </div>
               </div>
 
               {/* Price & Purchase date */}
@@ -778,13 +901,18 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
               </div>
               <div className="space-y-1.5 flex flex-col">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Ngày mua dịch vụ</label>
-                <input 
-                  type="date"
-                  required
-                  value={formPurchaseDate}
-                  onChange={(e) => setFormPurchaseDate(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73]"
-                />
+                <div className="relative">
+                  <input 
+                    type="date"
+                    required
+                    value={formPurchaseDate}
+                    onChange={(e) => setFormPurchaseDate(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 h-[52px] py-0 pr-10 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all text-left flex items-center"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400">
+                    <DynamicIcon name="Calendar" size={16} />
+                  </div>
+                </div>
               </div>
 
               {/* Cộng thêm ngày dùng (MOVED) */}
@@ -814,16 +942,92 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                 />
               </div>
 
-              {/* Supplier Source */}
-              <div className="space-y-1.5 flex flex-col">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Nơi nhập sản phẩm</label>
-                <input 
-                  type="text"
-                  value={formSource}
-                  onChange={(e) => setFormSource(e.target.value)}
-                  placeholder="Ví dụ: Đại lý Thừa Đức, tự đăng ký..."
-                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all placeholder:font-mono placeholder:text-xs placeholder:font-bold placeholder:tracking-wider placeholder:text-slate-500/60 dark:placeholder:text-slate-400/40"
-                />
+              {/* Supplier Source & Contact Channel */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5 flex flex-col">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Nơi nhập</label>
+                  <input
+                    type="text"
+                    value={formSource}
+                    onChange={(e) => setFormSource(e.target.value)}
+                    placeholder="Tên đại lý, nguồn..."
+                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {SOURCES.map(source => (
+                      <button
+                        key={source}
+                        type="button"
+                        onClick={() => setFormSource(source)}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border",
+                          formSource === source
+                            ? "bg-[#1DBF73]/15 text-[#1DBF73] border-[#1DBF73]/30"
+                            : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-450 border-transparent hover:border-slate-300 dark:hover:border-slate-700"
+                        )}
+                      >
+                        {source}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5 flex flex-col">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Nơi liên lạc</label>
+                  <input
+                    type="text"
+                    value={formContactChannel}
+                    onChange={(e) => setFormContactChannel(e.target.value)}
+                    placeholder="Zalo, FB, Telegram..."
+                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {CONTACT_CHANNELS.map(channel => (
+                      <button
+                        key={channel}
+                        type="button"
+                        onClick={() => setFormContactChannel(channel)}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border",
+                          formContactChannel === channel
+                            ? "bg-[#1DBF73]/15 text-[#1DBF73] border-[#1DBF73]/30"
+                            : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-455 border-transparent hover:border-slate-300 dark:hover:border-slate-700"
+                        )}
+                      >
+                        {channel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Refund Section */}
+              <div className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider font-mono flex items-center justify-between">
+                  <span>Refund</span>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => {
+                        setFormRefundStatus('none');
+                        setFormRefundAmount('0');
+                        setFormRefundDate('');
+                    }} className={cn("px-2 py-0.5 rounded-md", formRefundStatus === 'none' ? 'bg-[#1DBF73] text-white' : 'bg-slate-200 dark:bg-slate-800')}>None</button>
+                    <button type="button" onClick={() => {
+                        setFormRefundStatus('pending');
+                        setFormRefundDate(format(new Date(), 'yyyy-MM-dd HH:mm'));
+                        setFormRefundAmount(computedFormValues.refundValue.toString());
+                    }} className={cn("px-2 py-0.5 rounded-md", formRefundStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-200 dark:bg-slate-800')}>Pending</button>
+                    <button type="button" onClick={() => {
+                        setFormRefundStatus('completed');
+                        setFormRefundDate(format(new Date(), 'yyyy-MM-dd HH:mm'));
+                        setFormRefundAmount(computedFormValues.refundValue.toString());
+                    }} className={cn("px-2 py-0.5 rounded-md", formRefundStatus === 'completed' ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-800')}>Done</button>
+                  </div>
+                </label>
+                {formRefundStatus !== 'none' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <input type="text" value={formRefundAmount} onChange={(e) => setFormRefundAmount(e.target.value)} className="bg-white dark:bg-slate-950 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-800 text-sm" placeholder="Số tiền..." />
+                    <input type="text" value={formRefundDate} readOnly className="bg-white/50 dark:bg-slate-950/50 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-800 text-sm" />
+                  </div>
+                )}
               </div>
 
               {/* Notes Area */}

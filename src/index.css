@@ -35,3 +35,32 @@ html, body, #root {
     font-size: 16px !important;
   }
 }
+
+/* Style date input to be uniform across devices and custom styles in Safari on iOS */
+input[type="date"] {
+  position: relative;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: normal;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left !important;
+  margin: 0 !important;
+  min-height: 1.5em;
+  display: flex !important;
+  align-items: center !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
