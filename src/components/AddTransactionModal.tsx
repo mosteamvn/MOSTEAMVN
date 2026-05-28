@@ -13,15 +13,26 @@ interface AddTransactionModalProps {
   categories: Category[];
   onSuccess: () => void;
   editingTransaction?: Transaction | null;
+  transactions?: Transaction[];
 }
 
-export default function AddTransactionModal({ isOpen, onClose, wallets = [], categories = [], onSuccess, editingTransaction }: AddTransactionModalProps) {
+export default function AddTransactionModal({ 
+  isOpen, 
+  onClose, 
+  wallets = [], 
+  categories = [], 
+  onSuccess, 
+  editingTransaction,
+  transactions = []
+}: AddTransactionModalProps) {
   const [type, setType] = useState<TransactionType>('expense');
   const [expression, setExpression] = useState('0');
+  const [lastPredicted, setLastPredicted] = useState<{ amount: number; type: TransactionType; catId: string } | null>(null);
   const [categoryId, setCategoryId] = useState('');
   const [walletId, setWalletId] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
@@ -37,12 +48,36 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
         setNote(editingTransaction.note || '');
         const formattedDate = editingTransaction.date ? editingTransaction.date.split('T')[0] : new Date().toISOString().split('T')[0];
         setDate(formattedDate);
+        
+        // Extract time from editingTransaction
+        if (editingTransaction.date) {
+          try {
+            const d = new Date(editingTransaction.date);
+            const hrs = d.getHours().toString().padStart(2, '0');
+            const mins = d.getMinutes().toString().padStart(2, '0');
+            setTime(`${hrs}:${mins}`);
+          } catch {
+            const now = new Date();
+            setTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+          }
+        } else {
+          const now = new Date();
+          setTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+        }
+        
         setShowKeypad(false);
       } else {
         setType('expense');
         setExpression('0');
         setNote('');
         setDate(new Date().toISOString().split('T')[0]);
+        
+        // Default to current local time
+        const now = new Date();
+        const hrs = now.getHours().toString().padStart(2, '0');
+        const mins = now.getMinutes().toString().padStart(2, '0');
+        setTime(`${hrs}:${mins}`);
+
         if (wallets && wallets.length > 0) {
           const defaultWallet = wallets.find(w => w && w.isDefault);
           setWalletId(defaultWallet ? defaultWallet.id : (wallets[0]?.id || ''));
@@ -133,8 +168,6 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
     );
   };
 
-  if (!isOpen) return null;
-
   // Keypad logic
   const handleKeypadPress = (val: string) => {
     if (expression === '0' && !['+', '-', '*', '/'].includes(val) && val !== '000') {
@@ -196,6 +229,83 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
 
   const currentAmount = getCalculatedAmount();
 
+  // Tự động nhận diện và gợi ý nhóm / ghi chú dựa trên lịch sử giao dịch
+  useEffect(() => {
+    if (editingTransaction || currentAmount <= 0 || !transactions || transactions.length === 0) {
+      if (currentAmount <= 0) {
+        setLastPredicted(null);
+      }
+      return;
+    }
+
+    // Nếu đã gợi ý cho số tiền và phân loại này rồi thì không chạy lại
+    if (lastPredicted && lastPredicted.amount === currentAmount && lastPredicted.type === type) {
+      return;
+    }
+
+    // Tìm các giao dịch cũ có cùng loại và cùng số tiền chính xác
+    const matches = transactions.filter(t => t.type === type && t.amount === currentAmount);
+    if (matches.length === 0) {
+      return;
+    }
+
+    // Đếm nhóm nào được dùng nhiều nhất cho số tiền này
+    const categoryCounts: Record<string, number> = {};
+    matches.forEach(t => {
+      categoryCounts[t.categoryId] = (categoryCounts[t.categoryId] || 0) + 1;
+    });
+
+    let bestCategoryId = '';
+    let maxCount = -1;
+    Object.entries(categoryCounts).forEach(([catId, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        bestCategoryId = catId;
+      }
+    });
+
+    if (!bestCategoryId) return;
+
+    // Tìm ghi chú phổ biến nhất của nhóm này đối với số tiền hiện tại
+    const categoryMatches = matches.filter(t => t.categoryId === bestCategoryId);
+    const noteCounts: Record<string, number> = {};
+    categoryMatches.forEach(t => {
+      const rawNote = (t.note || '').trim();
+      if (rawNote) {
+        noteCounts[rawNote] = (noteCounts[rawNote] || 0) + 1;
+      }
+    });
+
+    let bestNote = '';
+    let maxNoteCount = -1;
+    Object.entries(noteCounts).forEach(([n, count]) => {
+      if (count > maxNoteCount) {
+        maxNoteCount = count;
+        bestNote = n;
+      }
+    });
+
+    // Cập nhật nhóm giao dịch tự động
+    setCategoryId(bestCategoryId);
+
+    // Cập nhật ghi chú nếu người dùng chưa viết gì hoặc đang có ghi chú trống
+    let matchedNoteText = '';
+    if (bestNote && (!note || note.trim() === '')) {
+      setNote(bestNote);
+      matchedNoteText = bestNote;
+    }
+
+    // Lưu lại trạng thái dự đoán cuối cùng
+    setLastPredicted({ amount: currentAmount, type, catId: bestCategoryId });
+
+    // Hiển thị thông báo Toast thông minh tự động
+    const catName = categories.find(c => c.id === bestCategoryId)?.name || 'Nhóm phù hợp';
+    toast.success(
+      `🪄 Gợi ý nhóm: ${catName}${matchedNoteText ? ` (${matchedNoteText})` : ''}`,
+      { id: 'auto-category-fill', duration: 2500 }
+    );
+  }, [currentAmount, type, transactions, editingTransaction, categories, lastPredicted, note]);
+
   const handleAdjustDate = (days: number) => {
     const d = new Date(date);
     d.setDate(d.getDate() + days);
@@ -231,6 +341,11 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
       const wallet = wallets.find(w => w.id === walletId);
       if (!wallet) throw new Error('Không tìm thấy ví');
 
+      const [year, month, day] = date.split('-').map(Number);
+      const [hours, minutes] = time.split(':').map(Number);
+      const localDate = new Date(year, month - 1, day, hours || 0, minutes || 0);
+      const isoString = localDate.toISOString();
+
       if (editingTransaction) {
         const oldWallet = wallets.find(w => w.id === editingTransaction.walletId);
         await updateTransaction(
@@ -241,7 +356,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
             categoryId,
             walletId,
             note,
-            date: new Date(date).toISOString()
+            date: isoString
           },
           oldWallet ? oldWallet.balance : 0,
           wallet.balance
@@ -254,7 +369,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
             categoryId,
             walletId,
             note,
-            date: new Date(date).toISOString()
+            date: isoString
         }, wallet.balance);
         toast.success('Thêm giao dịch thành công!');
       }
@@ -269,6 +384,8 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-[#F3F4F6] dark:bg-slate-900 animate-in slide-in-from-bottom-full duration-300">
@@ -464,10 +581,15 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
                      </div>
                    )}
                   <span className={cn(
-                    "text-[17px]",
+                    "text-[17px] flex items-center gap-2",
                     selectedCategory ? "text-slate-900 dark:text-gray-100" : "text-slate-400"
                   )}>
                     {selectedCategory?.name || 'Chọn nhóm'}
+                    {lastPredicted && lastPredicted.amount === currentAmount && categoryId === lastPredicted.catId && (
+                      <span className="bg-emerald-500/10 text-[#1DBF73] text-[10px] font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 border border-[#1DBF73]/20">
+                        ✨ Thuận tiện
+                      </span>
+                    )}
                   </span>
                 </div>
                 <ChevronRight className="text-slate-400" size={20} />
@@ -475,7 +597,7 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
 
               {/* Note Item */}
               <div className="flex items-center gap-3 py-4 border-b border-slate-50 dark:border-slate-800">
-                 <div className="w-8 h-8 flex items-center justify-center text-slate-500">
+                 <div className="w-8 h-8 flex items-center justify-center text-slate-500 shrink-0">
                    <DynamicIcon name="AlignLeft" size={20} />
                  </div>
                  <input 
@@ -486,6 +608,28 @@ export default function AddTransactionModal({ isOpen, onClose, wallets = [], cat
                    onFocus={() => setShowKeypad(false)}
                    className="flex-1 text-[17px] bg-transparent outline-none placeholder:text-slate-400 text-slate-900 dark:text-white"
                  />
+              </div>
+
+              {/* Time Item */}
+              <div className="flex items-center justify-between gap-3 py-4 border-b border-slate-50 dark:border-slate-800">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 flex items-center justify-center text-[#1DBF73] shrink-0">
+                      <DynamicIcon name="Clock" size={20} />
+                    </div>
+                    <span className="text-[17px] text-slate-900 dark:text-white font-medium">Giờ giao dịch</span>
+                 </div>
+                 
+                 {/* Pill-shaped Time Picker */}
+                 <div className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all px-3 py-1.5 rounded-xl shrink-0 cursor-pointer overflow-hidden shadow-xs">
+                   <span className="text-[14px] font-black text-[#1DBF73] tracking-wide select-none">{time || '00:00'}</span>
+                   <input 
+                     type="time"
+                     value={time}
+                     onChange={e => setTime(e.target.value)}
+                     onFocus={() => setShowKeypad(false)}
+                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                   />
+                 </div>
               </div>
 
               {/* Symmetric Date Selector */}

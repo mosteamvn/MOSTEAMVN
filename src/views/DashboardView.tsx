@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { formatCurrency, cn } from '../lib/utils';
-import { Wallet, Transaction } from '../types';
+import { Wallet, Transaction, Budget, Category } from '../types';
 import { DynamicIcon } from '../components/DynamicIcon';
-import { format, isThisMonth, isThisWeek } from 'date-fns';
+import { format, isThisMonth, isThisWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { 
   Search, 
   X, 
@@ -16,19 +16,92 @@ import {
   Bot, 
   Lightbulb, 
   ArrowRight,
-  PieChart as PieIcon
+  PieChart as PieIcon,
+  AlertTriangle,
+  AlertCircle,
+  Bell,
+  Clock,
+  Calendar,
+  Sun,
+  CloudSun,
+  Wind,
+  Cloud,
+  Thermometer,
+  CloudRain,
+  Moon,
+  CloudLightning
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from 'recharts';
+import { RecurringTemplate } from '../utils/recurrenceDetector';
 
 interface DashboardViewProps {
   wallets: Wallet[];
   transactions: Transaction[];
-  setActiveView: (view: 'wallets' | 'transactions' | 'statistics' | 'insider' | any) => void;
+  budgets?: Budget[];
+  categories?: Category[];
+  user?: any;
+  setActiveView: (view: 'wallets' | 'transactions' | 'statistics' | 'insider' | 'budgets' | 'recurring' | any) => void;
 }
 
-export default function DashboardView({ wallets, transactions, setActiveView }: DashboardViewProps) {
+export default function DashboardView({ wallets, transactions, budgets = [], categories = [], user, setActiveView }: DashboardViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+
+  // Weather states & calculations
+  const [weatherCityIndex, setWeatherCityIndex] = useState(() => {
+    return Number(localStorage.getItem('hb_weather_city_idx') ?? '1');
+  });
+
+  const citiesWeather = useMemo(() => {
+    const hours = new Date().getHours();
+    const isDay = hours >= 6 && hours < 18;
+
+    return [
+      { 
+        city: 'Hà Nội', 
+        temp: isDay ? 31 : 24, 
+        status: isDay ? 'Nắng ráo' : 'Mát mẻ', 
+        icon: isDay ? Sun : Moon, 
+        color: isDay ? 'text-amber-500 bg-amber-500/10 border-amber-500/15' : 'text-blue-400 bg-blue-500/10 border-blue-500/15' 
+      },
+      { 
+        city: 'TP. Hồ Chí Minh', 
+        temp: isDay ? 34 : 27, 
+        status: isDay ? 'Nắng nóng nhẹ' : 'Mát mẻ trời trong', 
+        icon: isDay ? CloudSun : Moon, 
+        color: isDay ? 'text-orange-500 bg-orange-500/10 border-orange-500/15' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/15' 
+      },
+      { 
+        city: 'Đà Nẵng', 
+        temp: isDay ? 32 : 25, 
+        status: isDay ? 'Gió nhẹ' : 'Lộng gió biển', 
+        icon: isDay ? Wind : Moon, 
+        color: isDay ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/15' : 'text-slate-400 bg-slate-500/10 border-slate-500/15'
+      },
+      { 
+        city: 'Đà Lạt', 
+        temp: isDay ? 22 : 15, 
+        status: isDay ? 'Sương mù nhẹ' : 'Lạnh trời sương', 
+        icon: isDay ? Cloud : Cloud, 
+        color: 'text-sky-500 bg-sky-500/10 border-sky-500/15' 
+      },
+      { 
+        city: 'Nha Trang', 
+        temp: isDay ? 32 : 26, 
+        status: isDay ? 'Nắng râm mát' : 'Sóng êm dịu', 
+        icon: isDay ? Sun : Moon, 
+        color: isDay ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/15' : 'text-violet-400 bg-violet-500/10 border-violet-500/15' 
+      }
+    ];
+  }, []);
+
+  const cycleWeatherCity = () => {
+    const next = (weatherCityIndex + 1) % citiesWeather.length;
+    setWeatherCityIndex(next);
+    localStorage.setItem('hb_weather_city_idx', String(next));
+  };
+
+  const currentWeather = citiesWeather[weatherCityIndex];
   
   // Persisted show/hide balance toggle state
   const [showBalance, setShowBalance] = useState(() => {
@@ -40,6 +113,17 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
     const next = !showBalance;
     setShowBalance(next);
     localStorage.setItem('hb_show_balance', String(next));
+  };
+
+  const formatTimeStr = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const hrs = d.getHours().toString().padStart(2, '0');
+      const mins = d.getMinutes().toString().padStart(2, '0');
+      return `${hrs}:${mins}`;
+    } catch {
+      return '';
+    }
   };
 
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
@@ -58,7 +142,7 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
 
   // Filter based on tab and slice to maximum 3 transactions
   const filteredRecentTransactions = useMemo(() => {
-    return transactions
+    return [...transactions]
       .filter(t => {
         const tDate = new Date(t.date);
         if (recentTab === 'week') {
@@ -67,6 +151,7 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
           return isThisMonth(tDate);
         }
       })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
   }, [transactions, recentTab]);
 
@@ -172,6 +257,144 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
   }, [searchQuery, transactions]);
 
   // Smart Money Insider preview local advice
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+
+  const alertsList = useMemo(() => {
+    const list: Array<{
+      id: string;
+      type: 'budget_over' | 'budget_warning' | 'recurring_urgent' | 'recurring_today';
+      title: string;
+      desc: string;
+      severity: 'high' | 'medium' | 'info';
+      actionLabel: string;
+      actionView: string;
+    }> = [];
+
+    // 1. Check Budgets
+    const currentMonthStr = new Date().toISOString().slice(0, 7);
+    const currentDate = new Date();
+    const expensesThisMonth = transactions.filter(t => 
+      t.type === 'expense' &&
+      isWithinInterval(new Date(t.date), { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
+    );
+
+    const activeBudgets = budgets.filter(b => b.month === currentMonthStr || b.isRecurring);
+
+    activeBudgets.forEach(b => {
+      let spent = 0;
+      if (b.categoryId === 'all') {
+        spent = expensesThisMonth.reduce((sum, t) => sum + t.amount, 0);
+      } else {
+        const subCategoryIds = categories
+          .filter(c => c.parentId === b.categoryId)
+          .map(c => c.id);
+        spent = expensesThisMonth
+          .filter(t => t.categoryId === b.categoryId || subCategoryIds.includes(t.categoryId))
+          .reduce((sum, t) => sum + t.amount, 0);
+      }
+
+      if (b.amount > 0) {
+        const percentage = (spent / b.amount) * 100;
+        const categoryName = b.categoryId === 'all'
+          ? 'Tổng ngân sách'
+          : categories.find(c => c.id === b.categoryId)?.name || 'Chi tiêu';
+
+        const limitStr = formatCurrency(b.amount);
+        const spentStr = formatCurrency(spent);
+        const percentStr = Math.round(percentage);
+
+        if (percentage >= 100) {
+          list.push({
+            id: `budget_over_${b.id || b.categoryId}`,
+            type: 'budget_over',
+            title: `Vượt định mức: Nhóm "${categoryName}"`,
+            desc: `Đã dùng ${spentStr}, vượt quá hạn mức tối đa ${limitStr} của bạn.`,
+            severity: 'high',
+            actionLabel: 'Xem ngân sách',
+            actionView: 'budgets'
+          });
+        } else if (percentage >= 90) {
+          list.push({
+            id: `budget_warn_90_${b.id || b.categoryId}`,
+            type: 'budget_warning',
+            title: `Cận định mức (90%): ${categoryName}`,
+            desc: `Đã chi ${spentStr} / hạn mức ${limitStr}. Chạm ngưỡng nguy cơ vượt chi!`,
+            severity: 'medium',
+            actionLabel: 'Tối ưu ngay',
+            actionView: 'budgets'
+          });
+        } else if (percentage >= 80) {
+          list.push({
+            id: `budget_warn_80_${b.id || b.categoryId}`,
+            type: 'budget_warning',
+            title: `Cảnh báo hạn mức (80%): ${categoryName}`,
+            desc: `Đã chi ${spentStr} / ${limitStr}. Đạt ngưỡng 80% định mức tháng.`,
+            severity: 'info',
+            actionLabel: 'Kiểm soát',
+            actionView: 'budgets'
+          });
+        }
+      }
+    });
+
+    // 2. Check Recurring Templates
+    const storageKey = user ? `recurring_templates_${user.uid}` : 'recurring_templates_generic';
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const templates: RecurringTemplate[] = JSON.parse(saved);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayDate = new Date(todayStr);
+
+        templates.forEach(t => {
+          if (!t.isActive) return;
+          const nextDueStr = t.nextDueDate.slice(0, 10);
+          const tDate = new Date(nextDueStr);
+          const diffTime = tDate.getTime() - todayDate.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          const formattedAmount = formatCurrency(t.amount);
+
+          if (diffDays === 0) {
+            list.push({
+              id: `recurring_today_${t.id}`,
+              type: 'recurring_today',
+              title: `📅 Đến hạn hôm nay: ${t.note}`,
+              desc: `Giao dịch định kỳ ${formattedAmount} đến thời hạn ghi nhận/thanh toán hôm nay.`,
+              severity: 'high',
+              actionLabel: 'Xử lý ngay',
+              actionView: 'recurring'
+            });
+          } else if (diffDays > 0 && diffDays <= 3) {
+            list.push({
+              id: `recurring_urgent_${t.id}`,
+              type: 'recurring_urgent',
+              title: `⏰ Sắp đến hạn: ${t.note}`,
+              desc: `Còn ${diffDays} ngày nữa là đến hạn thanh toán số tiền ${formattedAmount}.`,
+              severity: 'medium',
+              actionLabel: 'Kiểm tra',
+              actionView: 'recurring'
+            });
+          } else if (diffDays < 0) {
+            list.push({
+              id: `recurring_overdue_${t.id}`,
+              type: 'recurring_urgent',
+              title: `⚠️ Trễ hạn thanh toán: ${t.note}`,
+              desc: `Đã quá hạn ${Math.abs(diffDays)} ngày cho giao dịch định kỳ này (${formattedAmount}).`,
+              severity: 'high',
+              actionLabel: 'Cập nhật',
+              actionView: 'recurring'
+            });
+          }
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    return list.filter(item => !dismissedAlerts.includes(item.id));
+  }, [categories, budgets, transactions, user, dismissedAlerts]);
+
   const insiderPreviewAdvice = useMemo(() => {
     if (expenseThisMonth === 0) {
       return {
@@ -201,9 +424,30 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
       <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 -mx-5 px-5 flex justify-between items-center gap-4 border-b border-slate-100/50 dark:border-slate-800/10">
         {!isSearching ? (
           <>
-            <div>
-              <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Chào mừng trở lại</p>
-              <h1 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">Cá nhân của bạn</h1>
+            <div 
+              onClick={cycleWeatherCity}
+              className="flex items-center gap-3 cursor-pointer select-none group active:scale-95 transition-all text-left"
+              title="Nhấn để đổi thành phố"
+            >
+              <div className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-transform group-hover:rotate-12 duration-300 shadow-sm ${currentWeather.color} shrink-0`}>
+                <currentWeather.icon className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#1DBF73] uppercase tracking-wider">
+                  <span>Dự báo thời tiết</span>
+                  <span className="text-slate-300 dark:text-slate-700 font-normal ml-0.5 mr-0.5">•</span>
+                  <span className="text-slate-500 truncate max-w-[80px]">{currentWeather.city}</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+                    {currentWeather.temp}°C
+                  </span>
+                  <span className="text-xs text-slate-400 font-semibold">•</span>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+                    {currentWeather.status}
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button 
@@ -304,6 +548,88 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
               </span>
             </div>
           </section>
+
+          {/* TRUNG TÂM PHẢN HỒI & CẢNH BÁO THÔNG MINH */}
+          {alertsList.length > 0 && (
+            <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-rose-100 dark:border-rose-950/25 shadow-xs space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex justify-between items-center border-b border-rose-50/50 dark:border-rose-950/10 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500">
+                    <Bell size={16} className="animate-bounce text-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Nhắc nhở & Cảnh báo ({alertsList.length})
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Hạn mức chi tiêu & Kỳ hạn cần lưu ý</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                {alertsList.map((alert) => {
+                  const severityStyles = 
+                    alert.severity === 'high'
+                      ? 'bg-rose-50/60 dark:bg-rose-950/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                      : alert.severity === 'medium'
+                        ? 'bg-amber-50/60 dark:bg-amber-950/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                        : 'bg-blue-50/60 dark:bg-slate-800/40 border-slate-300/20 text-blue-700 dark:text-blue-400';
+
+                  const badgeStyles =
+                    alert.severity === 'high'
+                      ? 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-200/40 text-rose-600 dark:text-rose-300'
+                      : alert.severity === 'medium'
+                        ? 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-200/40 text-amber-600 dark:text-amber-300'
+                        : 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-200/40 text-blue-600 dark:text-blue-300';
+
+                  return (
+                    <div 
+                      key={alert.id}
+                      className={`p-3.5 rounded-xl border flex flex-col gap-2 relative transition-all duration-300 ${severityStyles}`}
+                    >
+                      <button 
+                        onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
+                        className="absolute top-3 right-3 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+
+                      <div className="flex items-start gap-2.5 pr-6">
+                        <span className="text-sm mt-0.5">
+                          {alert.severity === 'high' ? '🚨' : alert.severity === 'medium' ? '⚠️' : 'ℹ️'}
+                        </span>
+                        <div>
+                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                            {alert.title}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                            {alert.desc}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 mt-1">
+                        <button
+                          onClick={() => {
+                            setDismissedAlerts(prev => [...prev, alert.id]);
+                          }}
+                          className="px-3 py-1 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold text-slate-550 dark:text-slate-300 transition-colors uppercase tracking-wider"
+                        >
+                          Bỏ qua
+                        </button>
+                        <button
+                          onClick={() => setActiveView(alert.actionView)}
+                          className={`px-3 py-1 rounded-lg border text-[10px] font-extrabold uppercase tracking-wider transition-colors shadow-xs ${badgeStyles}`}
+                        >
+                          {alert.actionLabel}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* 2. BÁO CÁO THÁNG NÀY DẠNG BIỂU ĐỒ (Click and view stats details) */}
           <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-900 shadow-xs space-y-4">
@@ -542,9 +868,14 @@ export default function DashboardView({ wallets, transactions, setActiveView }: 
                       <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                        <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                          {formatTimeStr(tx.date)}
+                        </span>
+                      </div>
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                        {tx.note || format(new Date(tx.date), 'dd MMM yyyy')} • {tx.wallet?.name}
+                        {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : `${format(new Date(tx.date), 'dd MMM yyyy')} • ${tx.wallet?.name || ''}`}
                       </p>
                     </div>
                   </div>

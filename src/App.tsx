@@ -19,10 +19,12 @@ import AdminView from './views/AdminView';
 import PremiumView from './views/PremiumView';
 import { useAuth } from './contexts/AuthContext';
 import LoginView from './views/LoginView';
-import { subscribeWallets, subscribeCategories, subscribeTransactions, subscribeBudgets, initializeUserData } from './lib/api';
+import { subscribeWallets, subscribeCategories, subscribeTransactions, subscribeBudgets, initializeUserData, addTransaction } from './lib/api';
 import PinLockView from './components/PinLockView';
+import RecurringView from './views/RecurringView';
+import { calculateNextDueDate, RecurringTemplate } from './utils/recurrenceDetector';
 
-export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium';
+export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium' | 'recurring';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -61,6 +63,7 @@ export default function App() {
   const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedWalletIdForFilter, setSelectedWalletIdForFilter] = useState<string>('all');
 
   useEffect(() => {
     let active = true;
@@ -105,11 +108,13 @@ export default function App() {
   }, [user]);
 
   const transactions = useMemo(() => {
-    return rawTransactions.map(t => ({
-      ...t,
-      category: categories.find(c => c.id === t.categoryId),
-      wallet: wallets.find(w => w.id === t.walletId)
-    }));
+    return rawTransactions
+      .map(t => ({
+        ...t,
+        category: categories.find(c => c.id === t.categoryId),
+        wallet: wallets.find(w => w.id === t.walletId)
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [rawTransactions, categories, wallets]);
 
   const highlightedView = useMemo(() => {
@@ -120,7 +125,7 @@ export default function App() {
     return activeView;
   }, [activeView]);
 
-  // Alert notifications when spending reaches 80% or 90% of budget limit
+  // Alert notifications when spending reaches 80%, 90%, or 100% of budget limit
   useEffect(() => {
     if (!user || budgets.length === 0 || transactions.length === 0) return;
 
@@ -148,12 +153,12 @@ export default function App() {
       }
 
       if (b.amount > 0) {
-        const percentage = (spent / b.amount) * 105 ? (spent / b.amount) * 100 : 0;
+        const percentage = (spent / b.amount) * 100;
         const categoryName = b.categoryId === 'all'
           ? 'Tổng ngân sách'
           : categories.find(c => c.id === b.categoryId)?.name || 'Chi tiêu';
 
-        const toastDetails = (threshold: 80 | 90) => {
+        const toastDetails = (threshold: 80 | 90 | 100) => {
           const storageKey = `budget_notified_${user.uid}_${currentMonthStr}_${b.id || b.categoryId}_${b.amount}_${threshold}`;
           if (!localStorage.getItem(storageKey)) {
             localStorage.setItem(storageKey, 'true');
@@ -162,30 +167,48 @@ export default function App() {
             const spentStr = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(spent);
             const percentStr = Math.round(percentage);
 
+            const isExceeded = threshold === 100;
+            const borderColors = threshold === 100 
+              ? 'border-red-600 dark:border-red-500' 
+              : threshold === 90 
+                ? 'border-rose-500' 
+                : 'border-amber-500';
+            const iconSymbol = threshold === 100 ? '🚨' : threshold === 90 ? '⚠️' : 'ℹ️';
+            const titleText = threshold === 100 
+              ? 'Vượt hạn mức chi tiêu!' 
+              : `Cảnh báo hạn mức (${percentStr}%)`;
+
             toast.custom((t) => (
               <div
                 className={`${
                   t.visible ? 'animate-enter' : 'animate-leave'
-                } max-w-sm w-full bg-white dark:bg-slate-900 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 dark:ring-slate-800 p-4 border-l-4 ${
-                  threshold === 90 ? 'border-rose-500' : 'border-amber-500'
-                } transition-all duration-300`}
+                } max-w-sm w-full bg-white dark:bg-slate-900 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 dark:ring-slate-800 p-4 border-l-4 ${borderColors} transition-all duration-300`}
               >
                 <div className="flex-1 w-0">
                   <div className="flex items-start">
                     <div className="flex-shrink-0 pt-0.5">
-                      <span className="text-xl">{threshold === 90 ? '🚨' : '⚠️'}</span>
+                      <span className="text-xl">{iconSymbol}</span>
                     </div>
                     <div className="ml-3 flex-1">
                       <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        Cảnh báo hạn mức ({percentStr}%)
+                        {titleText}
                       </p>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-normal">
-                        Ngân sách <span className="font-semibold text-slate-800 dark:text-slate-200">"{categoryName}"</span> tháng này đạt <span className="font-semibold p-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-500 dark:text-rose-400">{spentStr}</span>, vượt quá <span className="font-bold">{percentStr}%</span> hạn mức ({limitStr}).
+                        Ngân sách <span className="font-semibold text-slate-800 dark:text-slate-200">"{categoryName}"</span> tháng này đạt <span className="font-semibold p-0.5 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-500 dark:text-rose-400">{spentStr}</span>, {isExceeded ? `đã vượt quá hạn mức (${limitStr})` : `đạt ${percentStr}% hạn mức (${limitStr})`}.
                       </p>
                     </div>
                   </div>
                 </div>
                 <div className="ml-4 flex-shrink-0 flex">
+                  <button
+                    onClick={() => {
+                      toast.dismiss(t.id);
+                      setActiveView('budgets' as any);
+                    }}
+                    className="text-[#1DBF73] text-xs font-bold hover:underline shrink-0 self-center mr-2 select-none"
+                  >
+                    Xem
+                  </button>
                   <button
                     onClick={() => toast.dismiss(t.id)}
                     className="bg-transparent rounded-lg p-1 inline-flex text-slate-400 hover:text-slate-500 focus:outline-none"
@@ -201,7 +224,9 @@ export default function App() {
           }
         };
 
-        if (percentage >= 90) {
+        if (percentage >= 100) {
+          toastDetails(100);
+        } else if (percentage >= 90) {
           toastDetails(90);
         } else if (percentage >= 80) {
           toastDetails(80);
@@ -210,6 +235,168 @@ export default function App() {
     });
 
   }, [budgets, transactions, categories, user]);
+
+  // Alert upcoming recurring payments
+  useEffect(() => {
+    if (isLoading || !user) return;
+
+    const storageKey = `recurring_templates_${user.uid}`;
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) return;
+
+    try {
+      const templates: RecurringTemplate[] = JSON.parse(saved);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayDate = new Date(todayStr);
+
+      const itemsNearDue: { note: string; amountText: string; daysLeft: number }[] = [];
+
+      templates.forEach(t => {
+        if (!t.isActive) return;
+        const nextDueStr = t.nextDueDate.slice(0, 10);
+        const tDate = new Date(nextDueStr);
+        const diffTime = tDate.getTime() - todayDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays >= 0 && diffDays <= 3) {
+          const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(t.amount);
+          itemsNearDue.push({
+            note: t.note,
+            amountText: formattedAmount,
+            daysLeft: diffDays
+          });
+        }
+      });
+
+      if (itemsNearDue.length > 0) {
+        const notifyStorageKey = `recurring_near_due_notified_${user.uid}_${todayStr}`;
+        if (!localStorage.getItem(notifyStorageKey)) {
+          localStorage.setItem(notifyStorageKey, 'true');
+
+          toast.custom((t) => (
+            <div
+              className={`${
+                t.visible ? 'animate-enter' : 'animate-leave'
+              } max-w-sm w-full bg-white dark:bg-slate-900 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 dark:ring-slate-800 p-4 border-l-4 border-emerald-500 transition-all duration-300`}
+              style={{ borderLeftColor: '#1DBF73' }}
+            >
+              <div className="flex-1 w-0 flex flex-col justify-center">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-0.5">
+                    <span className="text-xl">📅</span>
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">
+                      Nhắc nhở hóa đơn sắp đến hạn!
+                    </p>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                      {itemsNearDue.map((item, idx) => (
+                        <p key={idx} className="leading-relaxed">
+                          • <span className="font-semibold text-slate-800 dark:text-slate-200">"{item.note}"</span> ({item.amountText}) {item.daysLeft === 0 ? 'đến hạn hôm nay' : `đến hạn sau ${item.daysLeft} ngày`}.
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="ml-4 flex-shrink-0 flex items-center">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    setActiveView('recurring' as any);
+                  }}
+                  className="text-[#1DBF73] text-xs font-bold hover:underline shrink-0 mr-2 select-none"
+                >
+                  Xem
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="bg-transparent rounded-lg p-1 inline-flex text-slate-400 hover:text-slate-500 focus:outline-none"
+                >
+                  <span className="sr-only">Đóng</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ), { duration: 8000 });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isLoading, user]);
+
+  // Auto-trigger recurring transactions
+  useEffect(() => {
+    if (isLoading || !user || wallets.length === 0 || categories.length === 0) return;
+
+    const runAutoRecurrence = async () => {
+      const storageKey = `recurring_templates_${user.uid}`;
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return;
+
+      try {
+        const templates: RecurringTemplate[] = JSON.parse(saved);
+        let hasChanges = false;
+        const updatedTemplates = [...templates];
+
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        for (let i = 0; i < updatedTemplates.length; i++) {
+          const t = updatedTemplates[i];
+          if (!t.isActive) continue;
+
+          const nextDueStr = t.nextDueDate.slice(0, 10);
+          
+          if (todayStr >= nextDueStr) {
+            const wallet = wallets.find(w => w.id === t.walletId);
+            if (!wallet) continue;
+
+            const category = categories.find(c => c.id === t.categoryId);
+            if (!category) continue;
+
+            // Prevent infinite auto cycles by skipping if we already ran today
+            if (t.lastCreatedDate === todayStr) return;
+
+            // Log transaction into Firestore
+            await addTransaction({
+              type: t.type,
+              amount: t.amount,
+              categoryId: t.categoryId,
+              walletId: t.walletId,
+              note: `${t.note} (Định kỳ tự động)`,
+              date: new Date(t.nextDueDate).toISOString()
+            }, wallet.balance);
+
+            toast.success(`Đã tự động ghi nhận thành công: "${t.note}" (${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(t.amount)})`, { 
+              id: `auto_tx_created_${t.id}`,
+              duration: 5000 
+            });
+
+            const nextDue = calculateNextDueDate(t.nextDueDate, t.frequency);
+
+            updatedTemplates[i] = {
+              ...t,
+              lastCreatedDate: todayStr,
+              nextDueDate: nextDue,
+            };
+            hasChanges = true;
+          }
+        }
+
+        if (hasChanges) {
+          localStorage.setItem(storageKey, JSON.stringify(updatedTemplates));
+        }
+      } catch (err) {
+        console.error('Lỗi khi kiểm tra giao dịch định kỳ:', err);
+      }
+    };
+
+    // Run check once
+    runAutoRecurrence();
+  }, [isLoading, user, wallets, categories]);
 
   if (loading) {
     return (
@@ -266,10 +453,21 @@ export default function App() {
               </div>
             ) : (
               <>
-                {activeView === 'home' && <DashboardView wallets={wallets} transactions={transactions} setActiveView={setActiveView} />}
+                {activeView === 'home' && (
+                  <DashboardView 
+                    wallets={wallets} 
+                    transactions={transactions} 
+                    budgets={budgets} 
+                    categories={categories} 
+                    user={user} 
+                    setActiveView={setActiveView} 
+                  />
+                )}
                 {activeView === 'transactions' && (
                   <TransactionsView 
                     transactions={transactions} 
+                    wallets={wallets}
+                    initialWalletId={selectedWalletIdForFilter}
                     onDataChange={fetchData} 
                     onEditTransaction={(tx) => {
                       setEditingTransaction(tx);
@@ -326,11 +524,12 @@ export default function App() {
         {!isLoading && (
           <>
             {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
-            {activeView === 'wallets' && <WalletsView wallets={wallets} setActiveView={setActiveView} />}
+            {activeView === 'wallets' && <WalletsView wallets={wallets} setActiveView={setActiveView} onSelectWalletForFilter={setSelectedWalletIdForFilter} />}
             {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
             {activeView === 'insider' && <MoneyInsiderView transactions={transactions} wallets={wallets} setActiveView={setActiveView} />}
             {activeView === 'admin' && <AdminView setActiveView={setActiveView} />}
             {activeView === 'premium' && <PremiumView setActiveView={setActiveView} />}
+            {activeView === 'recurring' && <RecurringView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} />}
           </>
         )}
 
@@ -347,6 +546,7 @@ export default function App() {
             categories={categories}
             onSuccess={fetchData}
             editingTransaction={editingTransaction}
+            transactions={transactions}
           />
         </ErrorBoundary>
       </div>

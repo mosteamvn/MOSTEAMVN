@@ -9,6 +9,7 @@ import { addWallet, updateWallet, deleteWallet } from '../lib/api';
 interface WalletsViewProps {
   wallets: Wallet[];
   setActiveView: (view: any) => void;
+  onSelectWalletForFilter?: (walletId: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -48,7 +49,7 @@ const PRESET_ICONS = [
   'Activity'
 ];
 
-export default function WalletsView({ wallets, setActiveView }: WalletsViewProps) {
+export default function WalletsView({ wallets, setActiveView, onSelectWalletForFilter }: WalletsViewProps) {
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
 
   // Modal States
@@ -464,6 +465,21 @@ export default function WalletsView({ wallets, setActiveView }: WalletsViewProps
 
               {/* Action Buttons */}
               <div className="space-y-3 pt-2">
+                {editingWallet && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      onSelectWalletForFilter?.(editingWallet.id);
+                      setActiveView('transactions');
+                    }}
+                    className="w-full bg-[#1DBF73]/10 hover:bg-[#1DBF73]/20 border border-[#1DBF73]/30 text-[#1DBF73] font-bold py-3.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <DynamicIcon name="Receipt" size={16} />
+                    Xem lịch sử giao dịch
+                  </button>
+                )}
+
                 <button
                   type="submit"
                   className="w-full bg-[#1DBF73] hover:bg-emerald-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-[#1DBF73]/20 transition-all text-sm block text-center"

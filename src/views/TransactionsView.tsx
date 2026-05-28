@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, isSameDay, isThisWeek, isThisMonth, isThisYear, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Transaction } from '../types';
+import { Transaction, Wallet } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { DynamicIcon } from '../components/DynamicIcon';
 import { Filter, Search, Download } from 'lucide-react';
@@ -9,22 +9,34 @@ import toast from 'react-hot-toast';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
+  wallets?: Wallet[];
+  initialWalletId?: string;
   onDataChange: () => void;
   onEditTransaction?: (tx: Transaction) => void;
 }
 
 type FilterType = 'all' | 'day' | 'week' | 'month' | 'year' | 'custom';
 
-export default function TransactionsView({ transactions, onDataChange, onEditTransaction }: TransactionsViewProps) {
+export default function TransactionsView({ transactions, wallets = [], initialWalletId = 'all', onDataChange, onEditTransaction }: TransactionsViewProps) {
   const [filterType, setFilterType] = useState<FilterType>('month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedWalletId, setSelectedWalletId] = useState<string>(initialWalletId);
+
+  useEffect(() => {
+    setSelectedWalletId(initialWalletId);
+  }, [initialWalletId]);
 
   const filteredTransactionsList = useMemo(() => {
     return transactions.filter(tx => {
+      // Wallet filter
+      if (selectedWalletId !== 'all' && tx.walletId !== selectedWalletId) {
+        return false;
+      }
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -50,7 +62,7 @@ export default function TransactionsView({ transactions, onDataChange, onEditTra
       }
       return true;
     });
-  }, [transactions, filterType, customStartDate, customEndDate, searchQuery]);
+  }, [transactions, filterType, customStartDate, customEndDate, searchQuery, selectedWalletId]);
 
   const handleExportCSV = () => {
     if (filteredTransactionsList.length === 0) {
@@ -104,10 +116,26 @@ export default function TransactionsView({ transactions, onDataChange, onEditTra
     }
   };
 
+  const formatTimeStr = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const hrs = d.getHours().toString().padStart(2, '0');
+      const mins = d.getMinutes().toString().padStart(2, '0');
+      return `${hrs}:${mins}`;
+    } catch {
+      return '';
+    }
+  };
+
   // Group transactions by date
   const groupedTransactions: { date: Date; items: Transaction[] }[] = [];
   
-  filteredTransactionsList.forEach(tx => {
+  // Sort the filtered list descending to guarantee correct order (latest first)
+  const sortedAndFiltered = [...filteredTransactionsList].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  sortedAndFiltered.forEach(tx => {
     const txDate = new Date(tx.date);
     const existingGroup = groupedTransactions.find(g => isSameDay(g.date, txDate));
     if (existingGroup) {
@@ -145,7 +173,10 @@ export default function TransactionsView({ transactions, onDataChange, onEditTra
       opening = 0;
     } else if (periodStart) {
       opening = transactions
-        .filter(tx => new Date(tx.date) < periodStart!)
+        .filter(tx => {
+          if (selectedWalletId !== 'all' && tx.walletId !== selectedWalletId) return false;
+          return new Date(tx.date) < periodStart!;
+        })
         .reduce((sum, tx) => sum + getSignedAmount(tx), 0);
     }
 
@@ -252,6 +283,40 @@ export default function TransactionsView({ transactions, onDataChange, onEditTra
         </div>
       )}
 
+      {/* Wallet Selector Row with custom icons/colors */}
+      {wallets && wallets.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-5 px-5 scrollbar-none shrink-0 select-none">
+          <button
+            onClick={() => setSelectedWalletId('all')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 active:scale-95 duration-200 border",
+              selectedWalletId === 'all'
+                ? "bg-[#1DBF73] border-[#1DBF73] text-white shadow-sm shadow-[#1DBF73]/20 font-black"
+                : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+            )}
+          >
+            <DynamicIcon name="Coins" size={13} />
+            Tất cả ví
+          </button>
+          {wallets.map(w => (
+            <button
+              key={w.id}
+              onClick={() => setSelectedWalletId(w.id)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 active:scale-95 duration-200 border",
+                selectedWalletId === w.id
+                  ? "text-white font-black shadow-xs"
+                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+              )}
+              style={selectedWalletId === w.id ? { backgroundColor: w.color, borderColor: w.color } : {}}
+            >
+              <DynamicIcon name={w.icon || 'Wallet'} size={13} />
+              {w.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Balance Summary Section */}
       <div className="bg-white dark:bg-slate-900/40 rounded-2xl p-4 shadow-sm border border-slate-100/80 dark:border-slate-800/50 space-y-3 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#1DBF73]/5 blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none"></div>
@@ -313,8 +378,15 @@ export default function TransactionsView({ transactions, onDataChange, onEditTra
                         <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
-                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">{tx.note || tx.wallet?.name}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                          <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                            {formatTimeStr(tx.date)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : (tx.wallet?.name || '')}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
