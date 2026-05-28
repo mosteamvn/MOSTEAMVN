@@ -29,6 +29,7 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
     { icon: 'Grid', label: 'Nhóm giao dịch', color: '#f59e0b', action: () => setActiveView('categories') },
     { icon: 'Target', label: 'Ngân sách tháng', color: '#1DBF73', action: () => setActiveView('budgets' as any) },
     { icon: 'RefreshCw', label: 'Giao dịch định kỳ', color: '#8b5cf6', action: () => setActiveView('recurring' as any) },
+    { icon: 'Calendar', label: 'Lịch vạn niên & Tử vi', color: '#e11d48', action: () => setActiveView('calendar' as any) },
   ];
 
   const securityOptions = !hasPin ? [

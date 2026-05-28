@@ -69,3 +69,14 @@ export interface PremiumSubscription {
   updatedAt: number;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  notes?: string;
+  date: string; // Solar date 'YYYY-MM-DD'
+  type: 'note' | 'reminder';
+  time?: string; // 'HH:MM'
+  isCompleted?: boolean;
+}
+
+

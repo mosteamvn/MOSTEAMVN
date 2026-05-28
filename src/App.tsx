@@ -23,8 +23,9 @@ import { subscribeWallets, subscribeCategories, subscribeTransactions, subscribe
 import PinLockView from './components/PinLockView';
 import RecurringView from './views/RecurringView';
 import { calculateNextDueDate, RecurringTemplate } from './utils/recurrenceDetector';
+import CalendarView from './views/CalendarView';
 
-export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium' | 'recurring';
+export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium' | 'recurring' | 'calendar';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -530,6 +531,7 @@ export default function App() {
             {activeView === 'admin' && <AdminView setActiveView={setActiveView} />}
             {activeView === 'premium' && <PremiumView setActiveView={setActiveView} />}
             {activeView === 'recurring' && <RecurringView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} />}
+            {activeView === 'calendar' && <CalendarView setActiveView={setActiveView} />}
           </>
         )}
 

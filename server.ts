@@ -34,6 +34,10 @@ const db = {
   ],
   budgets: [
     { id: '1', categoryId: 'all', amount: 10000000, month: new Date().toISOString().slice(0, 7), isRecurring: true }
+  ],
+  calendarEvents: [
+    { id: '1', title: 'Giỗ Đầu Ông Bà (Lịch Âm)', notes: 'Chuẩn bị mâm hoa quả thắp hương kính lễ gia tiên', date: new Date().toISOString().slice(0, 10), type: 'note' },
+    { id: '2', title: 'Thanh toán hoá đơn tháng', notes: 'Đóng cước internet và điện nước qua ứng dụng chuyển khoản', date: new Date().toISOString().slice(0, 10), type: 'reminder', time: '10:00', isCompleted: false }
   ]
 };
 
@@ -304,6 +308,143 @@ app.delete('/api/budgets/:id', (req, res) => {
     res.status(404).json({ error: 'Not found' });
   }
 });
+
+
+// --- CALENDAR EVENTS ENDPOINTS ---
+
+app.get('/api/calendar/events', (req, res) => {
+  res.json(db.calendarEvents || []);
+});
+
+app.post('/api/calendar/events', (req, res) => {
+  const { title, notes, date, type, time, isCompleted } = req.body;
+  if (!title || !date || !type) {
+    return res.status(400).json({ error: 'Tiêu đề, ngày rộng và loại sự kiện là bắt buộc' });
+  }
+  const newEvent = {
+    id: String(Date.now()),
+    title,
+    notes: notes || '',
+    date,
+    type,
+    time: time || '',
+    isCompleted: isCompleted !== undefined ? Boolean(isCompleted) : false
+  };
+  
+  if (!db.calendarEvents) {
+    db.calendarEvents = [];
+  }
+  db.calendarEvents.push(newEvent);
+  res.json(newEvent);
+});
+
+app.put('/api/calendar/events/:id', (req, res) => {
+  const { id } = req.params;
+  const { title, notes, date, type, time, isCompleted } = req.body;
+  
+  if (!db.calendarEvents) {
+    db.calendarEvents = [];
+  }
+  
+  const idx = db.calendarEvents.findIndex(ev => ev.id === id);
+  if (idx !== -1) {
+    db.calendarEvents[idx] = {
+      ...db.calendarEvents[idx],
+      title: title !== undefined ? title : db.calendarEvents[idx].title,
+      notes: notes !== undefined ? notes : db.calendarEvents[idx].notes,
+      date: date !== undefined ? date : db.calendarEvents[idx].date,
+      type: type !== undefined ? type : db.calendarEvents[idx].type,
+      time: time !== undefined ? time : db.calendarEvents[idx].time,
+      isCompleted: isCompleted !== undefined ? Boolean(isCompleted) : db.calendarEvents[idx].isCompleted
+    };
+    res.json(db.calendarEvents[idx]);
+  } else {
+    res.status(404).json({ error: 'Không tìm thấy sự kiện âm dương/ghi chú' });
+  }
+});
+
+app.delete('/api/calendar/events/:id', (req, res) => {
+  const { id } = req.params;
+  if (!db.calendarEvents) {
+    db.calendarEvents = [];
+  }
+  const idx = db.calendarEvents.findIndex(ev => ev.id === id);
+  if (idx !== -1) {
+    db.calendarEvents.splice(idx, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Không tìm thấy sự kiện cần xoá' });
+  }
+});
+
+app.post('/api/calendar/horoscope', async (req, res) => {
+  const { solarDate, lunarDate, lunarDetails, birthYear } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    const hasYear = birthYear ? `cho tuổi sinh năm ${birthYear}` : '';
+    return res.json({
+      reading: `### 🔮 Luận giải Tử vi ngày ${solarDate} (Âm lịch: ${lunarDate} - Năm ${lunarDetails?.ganZhiYear || ''}) ${hasYear}
+
+**1. Đánh giá khí vận tổng quan hôm nay:**
+Hôm nay cát khí quần tụ, năng lượng trời đất hài hoà mang sắc thái **${lunarDetails?.ganZhiDay || 'Cát Tường'}**. Thích hợp cho các hoạt động lên kế hoạch ngân sách, thắp hương cầu an lành, sửa soạn bài trí gia trang. Bạn có trí tuệ minh mẫn hôm nay.
+
+**2. Khung giờ Hoàng Đạo tốt lành:**
+*   **Tý (23h - 1h)**: Tư duy hanh thông.
+*   **Dần (3h - 5h)**: Thích hợp lập lộ trình mới.
+*   **Mão (5h - 7h)**: Gặp quý nhân phù trợ.
+*   **Ngọ (11h - 13h)**: May mắn giao thương tài lộc.
+*   **Mùi (13h - 15h)**: Thuận lợi giải quyết tàn dư công việc.
+*   **Dậu (17h - 19h)**: Thời gian gia đạo sum vầy, hoá giải bất hoà.
+
+**3. Ký sự Cát - Hung (Việc nên làm & kiêng kỵ):**
+*   👍 **Nên làm**: Tổ chức ghi chép chi tiêu, dọn dẹp các khoản nợ nần cũ, ký hợp đồng vừa và nhỏ, củng cố ví tiết kiệm.
+*   👎 **Nên tránh**: Kiêng mua sắm thiết bị điện máy đắt tiền bất thình lình, hạn chế mâu thuẫn hay lớn tiếng với tri kỷ.
+
+**4. Khảo sát Tam Hạn (Tài khố - Nhân duyên - Khí huyết):**
+*   💸 **Tài chính**: Gió lành thổi qua rương ngọc. Bạn biết quán xuyến thu chi rất tuyệt hảo. Nên duy trì kỷ luật tiền bạc.
+*   ❤️ **Nhân duyên**: Gia đạo êm âm. Các mối quan hệ quanh bạn đang toả ra tần số ấm áp, ôn hoà.
+*   💪 **Khí huyết**: Sức đề kháng dồi dào, tuy nhiên nên tăng cường uống nước ấm giải độc cơ thể vào buổi sớm dẹp sương mù.
+
+*🍀 Gợi ý Phong Thủy: Bản mệnh hôm nay hợp màu xanh ngọc lam hoặc cát tường vàng ánh kim. Nên mở rộng lòng đón chào điềm lành đến.*
+
+---
+*Mẹo nhỏ: Hãy cập nhật mã khoá \`GEMINI_API_KEY\` trong Settings > Secrets để được xem kiến giải Tử vi chuyên sâu chiêm nghiệm tự động cá nhân hoá bởi AI thế hệ mới!*`
+    });
+  }
+
+  try {
+    const prompt = `Bạn là một nhà kiến giải đại sư học giả uy tín bậc nhất về Phong thuỷ, Kinh Dịch và Tử Vi học cổ truyền Việt Nam.
+Hãy luận giải tử vi vận hạn ngày hôm nay cho người dùng bằng tiếng Việt thật tinh tế, bay bổng nhưng đầy triết lý, dễ hiểu và truyền cảm hứng.
+
+Thông tin ngày cần xem:
+- Ngày Dương lịch: ${solarDate}
+- Ngày Âm lịch: ${lunarDate} (Năm: ${lunarDetails?.ganZhiYear || ''}, Tháng: ${lunarDetails?.ganZhiMonth || ''}, Ngày: ${lunarDetails?.ganZhiDay || ''})
+- Tiết khí: ${lunarDetails?.solarTerm || 'Bình thường'}
+${birthYear ? `- Sinh năm (tuổi người dùng): ${birthYear}` : ''}
+
+Yêu cầu định dạng đầu ra:
+Trả về nội dung luận giải hoàn toàn bằng Markdown kết cấu khoa học, sắc nét gồm có:
+1. 🌟 **Vận khí tổng quan ngày hôm nay** (Nếu có tuổi sinh năm của người dùng, hãy giải thích can chi của ngày tương hợp hay xung khắc với con giáp của họ thế nào, tốt xấu ra sao).
+2. ⏰ **Khung giờ Hoàng Đạo cát tài** (Bảng kê các giờ tốt kèm theo gợi ý ngắn nên khởi sự việc gì trong giờ đó).
+3. ⚖️ **Thiên đức hành vi (Nên & Tránh)** (Sử dụng biểu tượng 👍/👎 lịch lãm cụ thể).
+4. 🔮 **Dự báo tam diện vận trình**: Tài lộc khố, Tình cảm gia đạo thủy chung, và Sức khỏe thể chất.
+5. 🍀 **Phương án bổ trợ phong thuỷ** (Màu sắc y phục tăng vượng khí, hướng cát xuất hành khởi đầu thành công).
+
+Luôn dùng từ ngữ trang nhã, hóm hỉnh nhẹ nhàng, mang thế giới nội tâm bình an và lạc quan tích cực nhất. Không lặp lại phần giới thiệu rườm rà.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+    });
+
+    res.json({ reading: response.text });
+  } catch (err: any) {
+    console.error('Horoscope API error:', err);
+    res.status(500).json({ error: 'Thất bại khi luận giải Tử vi từ Gemini: ' + err.message });
+  }
+});
+
 
 
 // --- VITE MIDDLEWARE ---

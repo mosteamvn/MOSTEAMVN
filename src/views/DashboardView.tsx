@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import * as LunarJS from 'lunar-javascript';
+const Solar = (LunarJS as any).Solar || (LunarJS as any).default?.Solar;
 import { formatCurrency, cn } from '../lib/utils';
 import { Wallet, Transaction, Budget, Category } from '../types';
 import { DynamicIcon } from '../components/DynamicIcon';
@@ -546,6 +548,50 @@ export default function DashboardView({ wallets, transactions, budgets = [], cat
               <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 {showBalance ? formatCurrency(totalBalance) : "•••••••• đ"}
               </span>
+            </div>
+          </section>
+
+          {/* LỊCH VẠN NIÊN & ÂM DƯƠNG QUICK ACCESS CARD */}
+          <section 
+            onClick={() => setActiveView('calendar')}
+            className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:border-[#B31E25]/30 dark:hover:border-[#DFAD16]/30 transition-all duration-300 cursor-pointer active:scale-[0.99]"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#B31E25]/10 to-[#DFAD16]/10 flex items-center justify-center text-[#B31E25] dark:text-[#FED871] shadow-inner group-hover:scale-105 transition-transform duration-300 border border-[#B31E25]/10">
+                  <Calendar size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="text-[10px] font-black text-[#A91D22] dark:text-[#FED871] uppercase tracking-widest">Âm Dương Lịch</h4>
+                    <span className="text-[8px] bg-[#B31E25]/10 dark:bg-[#FED871]/15 text-[#B31E25] dark:text-[#FED871] px-1.5 py-0.5 rounded-md font-black uppercase">Hom nay</span>
+                  </div>
+                  <p className="text-lg font-black text-slate-900 dark:text-[#FCFAF2] leading-tight">
+                    {(() => {
+                      try {
+                        if (!Solar) return '--/--';
+                        const today = new Date();
+                        const solar = Solar.fromYmd(today.getFullYear(), today.getMonth() + 1, today.getDate());
+                        const lunar = solar.getLunar();
+                        const day = lunar.getDay();
+                        const dayPrefix = day <= 10 ? 'Mùng ' : 'Ngày ';
+                        const monthAbs = Math.abs(lunar.getMonth());
+                        const isLeapMonth = lunar.getMonth() < 0;
+                        return `${dayPrefix}${day} Tháng ${monthAbs}${isLeapMonth ? ' (Nhuận)' : ''}`;
+                      } catch {
+                        return '--/--';
+                      }
+                    })()}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">
+                    Lập hành sự ngày lành & Luận quẻ
+                  </p>
+                </div>
+              </div>
+              
+              <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-400 flex items-center justify-center group-hover:bg-[#B31E25]/10 group-hover:text-[#B31E25] transition-all">
+                <ArrowRight size={16} />
+              </div>
             </div>
           </section>
 
