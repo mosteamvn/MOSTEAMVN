@@ -46,6 +46,7 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'near-expiry'>('all');
+  const [selectedProductType, setSelectedProductType] = useState<string>('Tất cả');
 
   // Modal / Form state
   const [selectedSub, setSelectedSub] = useState<PremiumSubscription | null>(null);
@@ -194,6 +195,11 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
       list = list.filter(sub => sub.remainingDays <= 7);
     }
 
+    // Filter product type
+    if (selectedProductType !== 'Tất cả') {
+      list = list.filter(sub => sub.productName === selectedProductType);
+    }
+
     // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -208,7 +214,7 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
 
     // Sort by remaining days: expired/soonest first
     return list.sort((a, b) => a.remainingDays - b.remainingDays);
-  }, [subListDecorated, filterType, searchQuery]);
+  }, [subListDecorated, filterType, searchQuery, selectedProductType]);
 
   // Statistics summaries
   const stats = useMemo(() => {
@@ -407,7 +413,7 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
           </button>
         )}
 
-        {/* Search Bar & Add Button */}
+        {/* Search Bar */}
         <div className="flex gap-2.5">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-slate-400">
@@ -430,16 +436,37 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
               </button>
             )}
           </div>
+        </div>
 
-          {isAdmin && (
+        {/* Product Filter */}
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-2 w-max">
             <button
-              onClick={openAddForm}
-              className="px-5 bg-[#1DBF73] hover:bg-[#19a964] text-white rounded-xl text-sm font-bold shrink-0 shadow-md active:scale-95 transition-all flex items-center gap-2"
+              onClick={() => setSelectedProductType('Tất cả')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                selectedProductType === 'Tất cả'
+                  ? "bg-[#1DBF73] text-white"
+                  : "bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+              )}
             >
-              <DynamicIcon name="PlusCircle" size={17} />
-              <span className="uppercase font-bold">Tạo đơn hàng</span>
+              Tất cả
             </button>
-          )}
+            {allProductsList.map(p => (
+              <button
+                key={p}
+                onClick={() => setSelectedProductType(p)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                  selectedProductType === p
+                    ? "bg-[#1DBF73] text-white"
+                    : "bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Auto Filter Near Expiry <= 7 days Toggle */}
@@ -549,6 +576,27 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
 
         <div className="h-6"></div>
       </div>
+
+      {/* Fixed Bottom Navigation */}
+      {isAdmin && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-3 z-50 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          <button
+            onClick={() => setActiveView('home')}
+            className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-750 transition-colors"
+          >
+            <DynamicIcon name="LayoutGrid" size={17} />
+            <span>Trang chủ</span>
+          </button>
+          
+          <button
+            onClick={openAddForm}
+            className="flex-[2] py-3.5 bg-[#1DBF73] hover:bg-[#19a964] text-white rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          >
+            <DynamicIcon name="PlusCircle" size={17} />
+            <span className="uppercase">Tạo đơn hàng</span>
+          </button>
+        </div>
+      )}
 
       {/* Admin Subscription Input / Edit Form (Full Overlay Modal) */}
       {isFormOpen && (
@@ -687,7 +735,7 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                 )}
               </div>
 
-              {/* Duration select & Bonus Days */}
+              {/* Duration select */}
               <div className="space-y-1.5 flex flex-col">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Gói sản phẩm (ngày)</label>
                 <select
@@ -700,31 +748,6 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                   <option value={180}>Gói 180 ngày (6 tháng)</option>
                   <option value={360}>Gói 360 ngày (1 năm)</option>
                 </select>
-              </div>
-              <div className="space-y-1.5 flex flex-col">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Cộng thêm ngày dùng</label>
-                <input 
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={formBonusDays === 0 ? '' : formBonusDays}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '') {
-                      setFormBonusDays(0);
-                    } else {
-                      const cleanDigits = val.replace(/\D/g, '');
-                      if (cleanDigits === '') {
-                        setFormBonusDays(0);
-                      } else {
-                        const parsed = parseInt(cleanDigits, 10);
-                        setFormBonusDays(isNaN(parsed) ? 0 : parsed);
-                      }
-                    }
-                  }}
-                  placeholder="0"
-                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all placeholder:font-mono placeholder:text-xs placeholder:font-bold placeholder:tracking-wider placeholder:text-slate-500/60 dark:placeholder:text-slate-400/40"
-                />
               </div>
 
               {/* Price & Purchase date */}
@@ -761,6 +784,33 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
                   value={formPurchaseDate}
                   onChange={(e) => setFormPurchaseDate(e.target.value)}
                   className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73]"
+                />
+              </div>
+
+              {/* Cộng thêm ngày dùng (MOVED) */}
+              <div className="space-y-1.5 flex flex-col">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Cộng thêm ngày dùng</label>
+                <input 
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formBonusDays === 0 ? '' : formBonusDays}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setFormBonusDays(0);
+                    } else {
+                      const cleanDigits = val.replace(/\D/g, '');
+                      if (cleanDigits === '') {
+                        setFormBonusDays(0);
+                      } else {
+                        const parsed = parseInt(cleanDigits, 10);
+                        setFormBonusDays(isNaN(parsed) ? 0 : parsed);
+                      }
+                    }
+                  }}
+                  placeholder="0"
+                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all placeholder:font-mono placeholder:text-xs placeholder:font-bold placeholder:tracking-wider placeholder:text-slate-500/60 dark:placeholder:text-slate-400/40"
                 />
               </div>
 
