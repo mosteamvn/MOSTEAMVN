@@ -525,7 +525,7 @@ export default function App() {
         {!isLoading && (
           <>
             {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
-            {activeView === 'wallets' && <WalletsView wallets={wallets} setActiveView={setActiveView} onSelectWalletForFilter={setSelectedWalletIdForFilter} />}
+            {activeView === 'wallets' && <WalletsView wallets={wallets} categories={categories} setActiveView={setActiveView} onSelectWalletForFilter={setSelectedWalletIdForFilter} />}
             {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
             {activeView === 'insider' && <MoneyInsiderView transactions={transactions} wallets={wallets} setActiveView={setActiveView} />}
             {activeView === 'admin' && <AdminView setActiveView={setActiveView} />}

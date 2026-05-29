@@ -1,13 +1,15 @@
 import { useState, FormEvent } from 'react';
-import { ArrowLeft, Plus, X, Trash2, Check, Wallet as WalletIcon, CreditCard, Coins, Landmark, Banknote, PiggyBank, Delete } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trash2, Check, Wallet as WalletIcon, CreditCard, Coins, Landmark, Banknote, PiggyBank, Delete, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Wallet } from '../types';
+import { Wallet, Category } from '../types';
 import { formatCurrency, cn } from '../lib/utils';
 import { DynamicIcon } from '../components/DynamicIcon';
 import { addWallet, updateWallet, deleteWallet } from '../lib/api';
+import BankSyncComponent from '../components/BankSyncComponent';
 
 interface WalletsViewProps {
   wallets: Wallet[];
+  categories: Category[];
   setActiveView: (view: any) => void;
   onSelectWalletForFilter?: (walletId: string) => void;
 }
@@ -49,11 +51,12 @@ const PRESET_ICONS = [
   'Activity'
 ];
 
-export default function WalletsView({ wallets, setActiveView, onSelectWalletForFilter }: WalletsViewProps) {
+export default function WalletsView({ wallets, categories, setActiveView, onSelectWalletForFilter }: WalletsViewProps) {
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBankSyncOpen, setIsBankSyncOpen] = useState(false);
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null);
   
   // Form States
@@ -227,13 +230,33 @@ export default function WalletsView({ wallets, setActiveView, onSelectWalletForF
         </button>
       </header>
 
-      <div className="px-5 pt-4 shrink-0">
+      <div className="px-5 pt-4 shrink-0 space-y-3">
         <div className="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-100 dark:border-slate-800">
           <p className="text-slate-400 text-sm font-medium tracking-wide">Tổng số dư</p>
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mt-1">
             {formatCurrency(totalBalance)}
           </h2>
         </div>
+
+        {/* Bank Connection Call to action */}
+        <button 
+          onClick={() => setIsBankSyncOpen(true)}
+          className="w-full bg-gradient-to-r from-[#128a43]/10 to-[#0054a5]/10 border border-emerald-500/15 hover:border-emerald-500/30 dark:border-slate-800 p-3.5 rounded-xl flex items-center justify-between text-left transition-all active:scale-[0.99] shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
+              <Landmark size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Đồng bộ Vietcombank &amp; Vietinbank</p>
+              <p className="text-[10px] text-slate-450 dark:text-slate-400 font-medium">Kết nối tự động SePay, dán tin nhắn, hoặc upload sao kê CSV</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-[#1DBF73] font-black bg-[#1DBF73]/10 px-1.5 py-0.5 rounded uppercase tracking-widest scale-90">Auto</span>
+            <ChevronRight size={14} className="text-slate-400" />
+          </div>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] space-y-4">
@@ -501,6 +524,16 @@ export default function WalletsView({ wallets, setActiveView, onSelectWalletForF
             </form>
           </div>
         </div>
+      )}
+
+      {/* Bank Sync Dashboard Overlay */}
+      {isBankSyncOpen && (
+        <BankSyncComponent
+          wallets={wallets}
+          categories={categories}
+          activeWalletId={editingWallet?.id}
+          onClose={() => setIsBankSyncOpen(false)}
+        />
       )}
     </div>
   );

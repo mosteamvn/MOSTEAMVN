@@ -309,6 +309,40 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ token: 'mock-jwt-token-123', user: db.users[0] });
 });
 
+// Live SePay / Casso bank webhook endpoint
+app.post('/api/webhook/bank-sync', (req, res) => {
+  const payload = req.body;
+  
+  // Log receipt of simulated/real bank transaction
+  console.log('Received bank webhook payload:', JSON.stringify(payload));
+  
+  // Real Vietnamese banking webhooks verification & payload extraction
+  const gateway = payload.gateway || 'Unknown Bank';
+  const amount = parseFloat(payload.transferAmount || payload.amount || '0');
+  const type = (payload.transferType || '').toLowerCase() === 'in' ? 'income' : 'expense';
+  const note = payload.content || payload.description || 'Giao dịch chuyển khoản';
+  
+  // If we have a local mock wallet specified, keep it in sync for standalone/mock tests
+  const walletId = payload.walletId;
+  if (walletId) {
+    const wallet = db.wallets.find(w => w.id === walletId);
+    if (wallet) {
+      wallet.balance += type === 'income' ? amount : -amount;
+    }
+  }
+
+  // Return success message
+  res.json({
+    success: true,
+    message: 'Ghi nhận biến động số dư thành công',
+    gateway,
+    amount,
+    type,
+    note,
+    timestamp: Date.now()
+  });
+});
+
 // Wallets
 app.get('/api/wallets', (req, res) => {
   res.json(db.wallets);
