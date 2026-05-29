@@ -126,6 +126,24 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
 
+    function isValidNabeAccount(data) {
+      return data.keys().hasAll(['userId', 'name', 'type', 'expiryDate', 'slotCapacity', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 128
+        && data.type in ['family', 'regular', 'physical']
+        && data.expiryDate is string && data.expiryDate.size() <= 64
+        && data.slotCapacity is number
+        && (data.get('members', null) == null || data.members is list)
+        && data.createdAt is number;
+    }
+
+    match /nabe_accounts/{accountId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(accountId) && isValidNabeAccount(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidNabeAccount(incoming()) && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
     function isValidPremiumProduct(data) {
       return data.keys().hasAll(['name', 'createdAt'])
         && data.name is string && data.name.size() > 0 && data.name.size() <= 128

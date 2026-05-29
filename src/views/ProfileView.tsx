@@ -30,6 +30,7 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
     { icon: 'Target', label: 'Ngân sách tháng', color: '#1DBF73', action: () => setActiveView('budgets' as any) },
     { icon: 'RefreshCw', label: 'Giao dịch định kỳ', color: '#8b5cf6', action: () => setActiveView('recurring' as any) },
     { icon: 'Calendar', label: 'Lịch vạn niên & Tử vi', color: '#e11d48', action: () => setActiveView('calendar' as any) },
+    { icon: 'Package', label: 'Kho Nabe Account', color: '#10b981', action: () => setActiveView('nabe-accounts' as any) },
   ];
 
   const securityOptions = !hasPin ? [
@@ -180,19 +181,6 @@ export default function ProfileView({ setActiveView }: ProfileViewProps) {
                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100">Phân quyền Thành viên</span>
               </div>
               <DynamicIcon name="ChevronRight" size={16} className="text-rose-400 group-hover:text-rose-500" />
-            </button>
-
-            <button 
-              onClick={() => setActiveView('premium' as any)} 
-              className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-lg transition-colors group animate-pulse"
-            >
-              <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500 shadow-sm transition-transform group-hover:scale-105">
-                    <DynamicIcon name="Sparkles" size={18} />
-                 </div>
-                 <span className="font-bold text-sm text-slate-900 dark:text-slate-100">Quản lý Nabe Account</span>
-              </div>
-              <DynamicIcon name="ChevronRight" size={16} className="text-emerald-500 group-hover:text-emerald-600" />
             </button>
           </div>
         </div>

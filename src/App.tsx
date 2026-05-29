@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Home, List, PieChart, User, PlusCircle } from 'lucide-react';
 import { cn } from './lib/utils';
-import { Transaction, Wallet, Category, Budget } from './types';
+import { Transaction, Wallet, Category, Budget, NabeAccount } from './types';
 import DashboardView from './views/DashboardView';
 import TransactionsView from './views/TransactionsView';
 import StatisticsView from './views/StatisticsView';
@@ -12,6 +12,7 @@ import WalletsView from './views/WalletsView';
 import AddTransactionModal from './components/AddTransactionModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import NabeAccountInventoryView from './views/NabeAccountInventoryView';
 
 import BudgetsView from './views/BudgetsView';
 import MoneyInsiderView from './views/MoneyInsiderView';
@@ -20,12 +21,13 @@ import PremiumView from './views/PremiumView';
 import { useAuth } from './contexts/AuthContext';
 import LoginView from './views/LoginView';
 import { subscribeWallets, subscribeCategories, subscribeTransactions, subscribeBudgets, initializeUserData, addTransaction } from './lib/api';
+import { subscribeNabeAccounts } from './lib/nabeApi';
 import PinLockView from './components/PinLockView';
 import RecurringView from './views/RecurringView';
 import { calculateNextDueDate, RecurringTemplate } from './utils/recurrenceDetector';
 import CalendarView from './views/CalendarView';
 
-export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium' | 'recurring' | 'calendar';
+export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium' | 'recurring' | 'calendar' | 'nabe-accounts';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -63,6 +65,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [nabeAccounts, setNabeAccounts] = useState<NabeAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedWalletIdForFilter, setSelectedWalletIdForFilter] = useState<string>('all');
 
@@ -88,8 +91,11 @@ export default function App() {
           const unsubBudgets = subscribeBudgets(user.uid, (data) => {
             if (active) setBudgets(data);
           });
+          const unsubNabeAccounts = subscribeNabeAccounts(user.uid, (data) => {
+            if (active) setNabeAccounts(data);
+          });
           
-          unsubscribes.push(unsubWallets, unsubCategories, unsubTransactions, unsubBudgets);
+          unsubscribes.push(unsubWallets, unsubCategories, unsubTransactions, unsubBudgets, unsubNabeAccounts);
           setIsLoading(false);
         })
         .catch((error: any) => {
@@ -442,8 +448,8 @@ export default function App() {
   ];
 
   return (
-    <div className="w-full min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col items-center">
-      <div className="w-full max-w-5xl h-[100dvh] bg-slate-50 dark:bg-slate-950 md:shadow-lg relative overflow-hidden flex flex-col md:border-x md:border-slate-100 md:dark:border-slate-900">
+    <div className="w-full min-h-[100dvh] bg-gradient-to-br from-slate-100 via-zinc-50 to-slate-200 dark:from-slate-950 dark:via-zinc-900 dark:to-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col items-center justify-center md:py-6">
+      <div className="w-full md:max-w-[430px] h-[100dvh] md:h-[880px] md:max-h-[94vh] bg-slate-50 dark:bg-slate-950 md:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.45)] relative overflow-hidden flex flex-col md:rounded-[40px] md:border-[8px] md:border-slate-900 dark:md:border-slate-800 animate-in fade-in duration-300">
         
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto pb-20">
@@ -526,6 +532,7 @@ export default function App() {
           <>
             {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
             {activeView === 'wallets' && <WalletsView wallets={wallets} categories={categories} setActiveView={setActiveView} onSelectWalletForFilter={setSelectedWalletIdForFilter} />}
+            {activeView === 'nabe-accounts' && <NabeAccountInventoryView nabeAccounts={nabeAccounts} setActiveView={setActiveView} />}
             {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
             {activeView === 'insider' && <MoneyInsiderView transactions={transactions} wallets={wallets} setActiveView={setActiveView} />}
             {activeView === 'admin' && <AdminView setActiveView={setActiveView} />}

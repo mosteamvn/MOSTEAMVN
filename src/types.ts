@@ -73,14 +73,26 @@ export interface PremiumSubscription {
   updatedAt: number;
 }
 
-export interface CalendarEvent {
+export interface NabeMemberSlot {
+  name: string;
+  email: string;
+  profile: string;
+  pin: string;
+}
+
+export type NabeAccountType = 'family' | 'regular' | 'physical';
+
+export interface NabeAccount {
   id: string;
-  title: string;
-  notes?: string;
-  date: string; // Solar date 'YYYY-MM-DD'
-  type: 'note' | 'reminder';
-  time?: string; // 'HH:MM'
-  isCompleted?: boolean;
+  userId: string;
+  name: string;
+  type: NabeAccountType;
+  ownerEmail: string;
+  ownerPin?: string;
+  members: NabeMemberSlot[];
+  slotCapacity: number; // 5 for family, 1 for regular, 0 for physical
+  expiryDate: string; // ISO string
+  createdAt: number;
 }
 
 
