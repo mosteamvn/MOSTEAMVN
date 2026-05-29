@@ -147,6 +147,163 @@ Trả về duy nhất định dạng JSON khớp với schema yêu cầu.`;
   }
 });
 
+app.post('/api/money-insider/chat', async (req, res) => {
+  const { message, history = [], transactions = [], wallets = [] } = req.body;
+  const ai = getGeminiClient();
+
+  // Compute stats on the fly to help backend or fallback provide better context
+  const totalIncome = transactions.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
+  const totalExpense = transactions.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+  const netSavings = totalIncome - totalExpense;
+  const walletList = wallets.map((w: any) => `${w.name}: ${w.balance.toLocaleString('vi-VN')}đ`).join(', ');
+
+  if (!ai) {
+    // Highly sophisticated rule-based financial advice generator when key is missing
+    const msgLower = message.toLowerCase();
+    let responseText = "Xin chào! Mình là cố vấn tài chính Nabe AI. Bạn cần tư vấn điều gì về ví tiền hôm nay?";
+
+    if (msgLower.includes("tiết kiệm") || msgLower.includes("tối ưu") || msgLower.includes("cắt giảm") || msgLower.includes("bớt")) {
+      responseText = `Chào bạn! Để tối ưu hóa tài chính và tăng cường tích lũy ngay lộc tức, đây là hành động đề xuất dành riêng cho bạn:\n\n` +
+        `1. **Xem xét các khoản Ăn uống**: Hiện tại phần lớn các app cá nhân thường ngốn tới 35-40% thu nhập cho nhóm này. Hãy bật "Thử thách pha cà phê tại nhà" để giữ lại khoảng 150.000đ - 200.000đ mỗi tuần.\n` +
+        `2. **Lọc phí dịch vụ ẩn**: Hãy rà soát tất cả các hóa đơn dịch vụ định kỳ (Netflix, YouTube Premium, iCloud...). Hãy hủy những cái 30 ngày qua bạn không chạm vào.\n` +
+        `3. **Thiết lập hạn mức ngân sách**: Đặt hạn mức chi tiêu tháng không quá 70% tổng thu nhập của bạn.`;
+    } else if (msgLower.includes("báo cáo") || msgLower.includes("tình hình") || msgLower.includes("chi tiêu") || msgLower.includes("ngoại tuyến") || msgLower.includes("thống kê") || msgLower.includes("tuần")) {
+      responseText = `### 📊 Báo cáo Sức khỏe Tài khố Ngoại tuyến\n\n` +
+        `Dưới đây là thống kê nhanh dựa trên dữ liệu giao dịch đã ghi nhận:\n` +
+        `- **Tổng thu nhập**: +${totalIncome.toLocaleString('vi-VN')} đ\n` +
+        `- **Tổng chi tiêu**: -${totalExpense.toLocaleString('vi-VN')} đ\n` +
+        `- **Số dư thặng tích**: **${netSavings >= 0 ? '+' : ''}${netSavings.toLocaleString('vi-VN')} đ** (${netSavings >= 0 ? 'Dương thặng dư tốt 🍀' : 'Thâm hụt cần lưu tâm ⚠️'})\n` +
+        `- **Danh sách ví**: ${walletList || 'Chưa ghi nhận ví'}\n\n` +
+        `*Mẹo: Hãy kích hoạt khóa \`GEMINI_API_KEY\` trong phần Cài đặt để kích hoạt cố vấn Generative AI tự động lập biểu phân tích thói quen ẩn của bạn một cách trực quan nhé!*`;
+    } else if (msgLower.includes("hành vi") || msgLower.includes("tâm lý") || msgLower.includes("bốc đồng") || msgLower.includes("hối hận")) {
+      responseText = `### 🧠 Phân tích Tâm lý Tiêu dùng\n\n` +
+        `Chi tiêu bốc đồng hoặc mua sắm giải tỏa căng thẳng (stress-spending) thường là thủ phạm lớn nhất làm xói mòn ví tiền.\n\n` +
+        `- **Mẹo ngăn ngừa**: Hãy áp dụng **Quy tắc trì hoãn 72 giờ**. Khi muốn mua một món đồ không thiết yếu, hãy bỏ vào giỏ hàng và đợi đúng 3 ngày. Sau 3 ngày, 80% cảm xúc ham muốn sẽ biến mất.\n` +
+        `- **Ghi nhận**: Bạn có thể sử dụng Tab **"Ghi Nhận Hành Vi"** ngay bên cạnh để ghi lại các món chi tiêu hối hận. Hệ thống sẽ thống kê và đưa ra liệu pháp tâm lý tài chính giúp bạn!`;
+    } else if (msgLower.includes("đầu tư") || msgLower.includes("tiền") || msgLower.includes("làm giàu")) {
+      responseText = `Đầu tư ban đầu hiệu quả nhất luôn là **đầu tư vào tri thức bản thân**. Trước khi tham gia các thị trường tài chính, hãy phấn đấu xây dựng **Quỹ khấn cấp bảo an** tối thiểu bằng 3 - 6 tháng chi phí sinh hoạt thiết yếu (đang được cất giữ an toàn trong các ví có tính thanh khoản cao của bạn). Điều này giúp bạn luôn chủ động trước mọi biến cố cuộc đời.`;
+    } else {
+      responseText = `Xin chào! Mình là **Nabe AI Assistant** 🤖. Với tư cách cố vấn tiền bạc, mình đang kiểm soát dữ liệu tài chính của bạn:\n` +
+        `- Tổng thu: \`${totalIncome.toLocaleString('vi-VN')} đ\`\n` +
+        `- Tổng chi: \`${totalExpense.toLocaleString('vi-VN')} đ\`\n` +
+        `- Ví hiện có: \`${walletList || 'Tiền mặt'}\`\n\n` +
+        `Bạn có thể hỏi mình những câu hỏi như:\n` +
+        `* "Làm sao để cắt giảm chi tiêu ăn uống?"\n` +
+        `* "Báo cáo sức khỏe dòng tiền của anh"\n` +
+        `* "Giải thích cho anh quy luật quản lý tài chính 50/30/20"`;
+    }
+
+    return res.json({ reply: responseText });
+  }
+
+  try {
+    // Build context with previous conversation history
+    const contextHistory = history.slice(-6).map((h: any) => ({
+      role: h.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: h.text }]
+    }));
+
+    const systemInstruction = `Bạn là một chuyên gia tư vấn tài chính cá nhân siêu việt người Việt Nam, tên là 'Nabe AI Core' được tích hợp trong ứng dụng quản lý ví tiền Nabe Budget.
+Sử dụng dữ liệu tài chính thật của người dùng dưới đây để đưa ra phản hồi chính xác, thực tế nhất. Luôn thân thiện, tâm lý, khuyến khích thay vì chỉ trích nặng nề.
+
+DỮ LIỆU THẬT CỦA NGƯỜI DÙNG:
+- Số dư ví hiện tại: ${walletList}
+- Tổng thu nhập đã ghi nhận: ${totalIncome.toLocaleString('vi-VN')} đ
+- Tổng chi tiêu đã ghi nhận: ${totalExpense.toLocaleString('vi-VN')} đ
+- Thặng dư dòng tiền: ${(totalIncome - totalExpense).toLocaleString('vi-VN')} đ
+- Danh sách tất cả giao dịch gần đây: ${JSON.stringify(transactions.slice(0, 15))}
+
+HƯỚNG DẪN TRẢ LỜI:
+1. Trả lời bằng tiếng Việt trang nhã, hóm hỉnh, sâu sắc.
+2. Sử dụng Markdown tinh tế để định dạng, trích xuất bảng biểu hoặc bullet points xúc tích nếu cần.
+3. Không lặp lại hay nhắc lại danh sách thô JSON của giao dịch, hãy phân tích xu thế để chỉ ra mẹo tiết kiệm cụ thể.`;
+
+    const chatSession = ai.chats.create({
+      model: "gemini-3.5-flash",
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      },
+      history: contextHistory
+    });
+
+    const result = await chatSession.sendMessage({ message });
+    res.json({ reply: result.text });
+  } catch (err: any) {
+    console.error('Gemini Chat error:', err);
+    res.status(500).json({ error: 'Failed to chat with Nabe AI: ' + err.message });
+  }
+});
+
+app.post('/api/money-insider/behavior', async (req, res) => {
+  const { type, note, amount } = req.body;
+  const ai = getGeminiClient();
+
+  const typeMap: any = {
+    impulsive: "Chi tiêu ngẫu hứng, bốc đồng",
+    stress: "Ăn uống/mua sắm do áp lực, căng thẳng",
+    regret: "Mua sắm hối tiếc (mua xong ít/không dùng)",
+    victory: "Chiến thắng cám dỗ (nhịn mua thành công để tích luỹ)"
+  };
+
+  const strType = typeMap[type] || type;
+
+  if (!ai) {
+    // Rule-based rich psychological behavioral feedback when offline
+    let fbTitle = "Phản hồi tâm lý Nabe";
+    let fbText = "Hành vi mua sắm luôn gắn liền với dopamine. Hãy chú ý đến cảm xúc kích hoạt nảy sinh.";
+
+    if (type === 'impulsive') {
+      fbTitle = "🧠 Liệu pháp Trì hoãn Dopamine";
+      fbText = `Hành vi "${note}" với số tiền ${amount ? amount.toLocaleString('vi-VN') + 'đ' : 'nhất định'} thuộc nhóm ngẫu hứng. Để khắc phục, bạn hãy vẽ một 'vạch ranh giới 72h'. Điện thoại hay đồ gia dụng muốn mua, hãy để trong giỏ, sau 3 ngày nếu vẫn thấy cần thì mới thanh toán. 85% trường hợp bạn sẽ quên béng nó đi!`;
+    } else if (type === 'stress') {
+      fbTitle = "🧘 Xoa dịu tâm thức thay vì bóp ví";
+      fbText = `Khi căng thẳng, não bộ tìm kiếm phần thưởng thức thời (đồ ngọt, trà sữa, mua sắm). Việc tiêu dùng để xoa dịu stress chỉ có tác dụng nhất thời nhưng tạo áp lực lớn lên tài khố lâu dài. Lần tới, hãy thử đi bộ nhanh 10 phút, nghe bản nhạc không lời hoặc uống một ly nước lọc ấm áp nhé!`;
+    } else if (type === 'regret') {
+      fbTitle = "📉 Đánh giá hiệu năng tiêu dùng";
+      fbText = `Mua sắm hối hận vì không dùng đến xảy ra do hiệu ứng 'con người lý tưởng tương lai' (chúng ta mua món đồ vì nghĩ mình sẽ siêng năng tập gym, siêng đọc sách nhưng thực tế không làm). Hãy thuê hoặc trải nghiệm thử trước khi mua đứt một thiết bị công nghệ hay công cụ nào đó đắt tiền.`;
+    } else if (type === 'victory') {
+      fbTitle = "🏆 Tín đồ kỷ luật Tài khố tối thượng";
+      fbText = `Xin chúc mừng! Bạn đã kiên cường vượt qua cám dỗ trì hoãn mua sắm ngắn hạn và tích lũy thặng dư thành công thêm ${amount ? amount.toLocaleString('vi-VN') + 'đ' : 'một khoản'}! Đây chính là thói quen của triệu phú tự thân. Hãy tự thưởng một ly nước lọc mát lành hoặc ghi nhận vào heo đất để thấy số tiền tích luỹ phình to!`;
+    }
+
+    return res.json({ title: fbTitle, feedback: fbText });
+  }
+
+  try {
+    const prompt = `Bạn là một tiến sĩ tâm lý học hành vi tài chính hàng đầu.
+Người dùng vừa tự ghi nhận một hành vi tiêu dùng / tài chính thực tế như sau:
+- Loại hành vi: ${strType}
+- Ghi chú cụ thể: "${note}"
+- Số tiền liên đới: ${amount ? amount.toLocaleString('vi-VN') + ' đ' : 'Chưa định lượng'}
+
+Yêu cầu phân tích:
+Hãy đưa ra một phản hồi tâm lý học tài chính thông minh, ngắn gọn, ấm áp bằng tiếng Việt giúp người dùng hiểu rõ bản chất cảm xúc thúc đẩy hành vi này và đề xuất giải pháp đào tạo thói quen tốt tương ứng. Trả về định dạng JSON khớp với schema yêu cầu.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "Tiêu đề ngắn gọn bắt mắt, pha chút biểu tượng cảm xúc, ví dụ: '🧠 Phản ứng Dopamine'" },
+            feedback: { type: Type.STRING, description: "Lời khuyên/nhận xét tâm lý hành vi chi tiết, thấu hiểu, đưa ra mẹo thực tế khắc phục hoặc hoan nghênh (tối đa 4 câu)." }
+          },
+          required: ["title", "feedback"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text.trim());
+    res.json(parsed);
+  } catch (err: any) {
+    console.error('Behavior analysis error:', err);
+    res.status(500).json({ error: 'Failed to analyze behavior: ' + err.message });
+  }
+});
+
 // Auth (Mock)
 app.post('/api/auth/login', (req, res) => {
   res.json({ token: 'mock-jwt-token-123', user: db.users[0] });
