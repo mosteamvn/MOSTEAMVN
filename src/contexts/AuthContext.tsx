@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import toast from 'react-hot-toast';
 
@@ -29,8 +29,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await signInWithPopup(auth, googleProvider);
       toast.success('Đăng nhập thành công');
     } catch (error: any) {
-      console.error(error);
-      toast.error('Đăng nhập thất bại: ' + error.message);
+      console.warn('Popup login blocked or failed. Trying redirection login...', error);
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (redirectErr: any) {
+        console.error('Redirect login also failed:', redirectErr);
+        toast.error('Đăng nhập thất bại: ' + (redirectErr.message || error.message));
+      }
     }
   };
 

@@ -17,6 +17,11 @@ interface TransactionsViewProps {
 
 type FilterType = 'all' | 'day' | 'week' | 'month' | 'year' | 'custom';
 
+const getSignedAmount = (tx: Transaction) => {
+  const isPositive = tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId));
+  return isPositive ? tx.amount : -tx.amount;
+};
+
 export default function TransactionsView({ transactions, wallets = [], initialWalletId = 'all', onDataChange, onEditTransaction }: TransactionsViewProps) {
   const [filterType, setFilterType] = useState<FilterType>('month');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -163,11 +168,6 @@ export default function TransactionsView({ transactions, wallets = [], initialWa
       }
     }
 
-    const getSignedAmount = (tx: Transaction) => {
-      const isPositive = tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId));
-      return isPositive ? tx.amount : -tx.amount;
-    };
-
     let opening = 0;
     if (filterType === 'all') {
       opening = 0;
@@ -184,7 +184,7 @@ export default function TransactionsView({ transactions, wallets = [], initialWa
     const closing = opening + net;
 
     return { openingBalance: opening, closingBalance: closing, netChange: net };
-  }, [transactions, filteredTransactionsList, filterType, customStartDate]);
+  }, [transactions, filteredTransactionsList, filterType, customStartDate, selectedWalletId]);
 
   return (
     <div className="px-5 pb-5 space-y-5">
@@ -357,55 +357,86 @@ export default function TransactionsView({ transactions, wallets = [], initialWa
           <p className="text-sm">Các giao dịch của bạn sẽ hiển thị tại đây.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {groupedTransactions.map(group => (
-            <div key={group.date.toISOString()}>
-              <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">
-                {format(group.date, 'EEEE, dd MMMM yyyy', { locale: vi })}
-              </h3>
-              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-50 dark:divide-slate-800/50">
-                {group.items.map(tx => (
-                  <div 
-                    key={tx.id} 
-                    onClick={() => onEditTransaction?.(tx)}
-                    className="p-4 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 active:scale-[0.99] transition-all cursor-pointer select-none"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
-                        style={tx.category?.color ? { backgroundColor: tx.category.color + '15', color: tx.category.color } : {}}
-                      >
-                        <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
-                          <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                            {formatTimeStr(tx.date)}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                          {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : (tx.wallet?.name || '')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className={`font-bold text-sm ${
-                          tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) 
-                            ? 'text-[#1DBF73]' 
-                            : 'text-slate-900 dark:text-slate-100'
-                        }`}>
-                          {tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) ? '+' : '-'}
-                          {formatCurrency(tx.amount)}
-                        </p>
-                      </div>
+        <div className="space-y-5">
+          {groupedTransactions.map(group => {
+            const dailyNet = group.items.reduce((sum, item) => sum + getSignedAmount(item), 0);
+
+            return (
+              <div key={group.date.toISOString()} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+                {/* Header Tổng Kết Ngày */}
+                <div className="flex items-center justify-between p-4 bg-slate-50/40 dark:bg-slate-800/10 border-b border-slate-100/50 dark:border-slate-800/40 select-none">
+                  <div className="flex items-center gap-3">
+                    {/* Số ngày siêu to cực nét */}
+                    <span className="text-3xl font-black text-slate-800 dark:text-slate-100 leading-none">
+                      {format(group.date, 'd')}
+                    </span>
+                    {/* Thứ và tháng / năm */}
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide leading-none">
+                        {format(group.date, 'EEEE', { locale: vi })}
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-medium capitalize mt-1 leading-none">
+                        {format(group.date, 'MMMM yyyy', { locale: vi })}
+                      </span>
                     </div>
                   </div>
-                ))}
+
+                  {/* Tổng thu chi ròng của ngày */}
+                  <div className="text-right">
+                    <span className={cn(
+                      "text-sm font-black tracking-tight",
+                      dailyNet >= 0 ? "text-[#1DBF73]" : "text-slate-800 dark:text-slate-100"
+                    )}>
+                      {dailyNet > 0 ? '+' : ''}{formatCurrency(dailyNet)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Danh sách giao dịch trong ngày */}
+                <div className="divide-y divide-slate-50 dark:divide-slate-800/45">
+                  {group.items.map(tx => (
+                    <div 
+                      key={tx.id} 
+                      onClick={() => onEditTransaction?.(tx)}
+                      className="p-4 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 active:scale-[0.99] transition-all cursor-pointer select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                          style={tx.category?.color ? { backgroundColor: tx.category.color + '15', color: tx.category.color } : {}}
+                        >
+                          <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                            <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                              {formatTimeStr(tx.date)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : (tx.wallet?.name || '')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className={`font-bold text-sm ${
+                            tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) 
+                              ? 'text-[#1DBF73]' 
+                              : 'text-slate-900 dark:text-slate-100'
+                          }`}>
+                            {tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) ? '+' : '-'}
+                            {formatCurrency(tx.amount)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <div className="h-6"></div>

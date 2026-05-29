@@ -2,6 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Safe LocalStorage and SessionStorage Polyfill for Safari Private browsing and strict third-party cookie blocking
+      (function() {
+        function checkAndPolyfill(storageType) {
+          try {
+            var storage = window[storageType];
+            var testKey = '__storage_test__';
+            storage.setItem(testKey, testKey);
+            storage.removeItem(testKey);
+          } catch (e) {
+            console.warn(storageType + ' is blocked or throwing errors. Using in-memory fallback to prevent crash.');
+            var mockStorageMap = {};
+            var mockStorage = {
+              getItem: function(key) {
+                return mockStorageMap.hasOwnProperty(key) ? mockStorageMap[key] : null;
+              },
+              setItem: function(key, value) {
+                mockStorageMap[key] = String(value);
+              },
+              removeItem: function(key) {
+                delete mockStorageMap[key];
+              },
+              clear: function() {
+                mockStorageMap = {};
+              },
+              key: function(index) {
+                return Object.keys(mockStorageMap)[index] || null;
+              },
+              get length() {
+                return Object.keys(mockStorageMap).length;
+              }
+            };
+            try {
+              Object.defineProperty(window, storageType, {
+                value: mockStorage,
+                writable: true,
+                configurable: true
+              });
+            } catch (defineError) {
+              // Fallback if defineProperty fails
+              window[storageType] = mockStorage;
+            }
+          }
+        }
+        checkAndPolyfill('localStorage');
+        checkAndPolyfill('sessionStorage');
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
