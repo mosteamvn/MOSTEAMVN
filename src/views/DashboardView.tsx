@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import * as LunarJS from 'lunar-javascript';
 const Solar = (LunarJS as any).Solar || (LunarJS as any).default?.Solar;
 import { formatCurrency, cn } from '../lib/utils';
@@ -54,48 +54,151 @@ export default function DashboardView({ wallets, transactions, budgets = [], cat
     return Number(localStorage.getItem('hb_weather_city_idx') ?? '1');
   });
 
+  const [realtimeWeather, setRealtimeWeather] = useState<{ [key: string]: { temp: number; code: number; isDay: boolean } }>({});
+
+  const baseCities = useMemo(() => [
+    { city: 'Hà Nội', lat: 21.0285, lon: 105.8542, defaultTemp: 31, defaultStatus: 'Nắng ráo' },
+    { city: 'TP. Hồ Chí Minh', lat: 10.8231, lon: 106.6297, defaultTemp: 34, defaultStatus: 'Nắng râm mát' },
+    { city: 'Đà Nẵng', lat: 16.0544, lon: 108.2022, defaultTemp: 32, defaultStatus: 'Mát mẻ' },
+    { city: 'Đà Lạt', lat: 11.9404, lon: 108.4583, defaultTemp: 22, defaultStatus: 'Sương mù nhẹ' },
+    { city: 'Nha Trang', lat: 12.2388, lon: 109.1967, defaultTemp: 32, defaultStatus: 'Nắng ấm dạo biển' }
+  ], []);
+
+  useEffect(() => {
+    let active = true;
+    const fetchWeather = async () => {
+      try {
+        const promises = baseCities.map(async (c) => {
+          try {
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current_weather=true`);
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (data.current_weather) {
+              return {
+                city: c.city,
+                temp: data.current_weather.temperature,
+                code: data.current_weather.weathercode,
+                isDay: data.current_weather.is_day === 1
+              };
+            }
+          } catch (e) {
+            console.error('Error fetching one city weather:', e);
+          }
+          return null;
+        });
+
+        const results = await Promise.all(promises);
+        if (!active) return;
+
+        const nextWeather: { [key: string]: { temp: number; code: number; isDay: boolean } } = {};
+        results.forEach((r) => {
+          if (r) {
+            nextWeather[r.city] = {
+              temp: r.temp,
+              code: r.code,
+              isDay: r.isDay
+            };
+          }
+        });
+
+        if (Object.keys(nextWeather).length > 0) {
+          setRealtimeWeather(nextWeather);
+        }
+      } catch (err) {
+        console.error('Weather fetching failed:', err);
+      }
+    };
+
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 5 * 60 * 1000); // refresh every 5 minutes
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [baseCities]);
+
+  const getWeatherDetails = (code: number, isDay: boolean) => {
+    let status = 'Trong lành';
+    let icon = isDay ? Sun : Moon;
+    let color = isDay ? 'text-amber-500 bg-amber-500/10 border-amber-500/15' : 'text-blue-400 bg-blue-500/10 border-blue-500/15';
+
+    if (code === 0) {
+      status = isDay ? 'Nắng ráo' : 'Trời trong mát';
+      icon = isDay ? Sun : Moon;
+      color = isDay ? 'text-amber-500 bg-amber-500/10 border-amber-500/15' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/15';
+    } else if ([1, 2, 3].includes(code)) {
+      status = code === 1 ? 'Ít mây' : code === 2 ? 'Mây rải rác' : 'Nhiều mây';
+      icon = isDay ? CloudSun : Cloud;
+      color = 'text-sky-500 bg-sky-500/10 border-sky-500/15';
+    } else if ([45, 48].includes(code)) {
+      status = 'Có sương mù';
+      icon = Cloud;
+      color = 'text-slate-400 bg-slate-500/10 border-slate-500/15';
+    } else if ([51, 53, 55, 56, 57].includes(code)) {
+      status = 'Mưa phùn nhẹ';
+      icon = CloudRain;
+      color = 'text-blue-400 bg-blue-500/10 border-blue-500/15';
+    } else if ([61, 63, 65, 66, 67].includes(code)) {
+      status = code === 61 ? 'Mưa nhỏ' : code === 63 ? 'Mưa vừa' : 'Mưa to';
+      icon = CloudRain;
+      color = 'text-blue-500 bg-blue-500/10 border-blue-500/15';
+    } else if ([80, 81, 82].includes(code)) {
+      status = 'Mưa rào';
+      icon = CloudRain;
+      color = 'text-teal-500 bg-teal-500/10 border-teal-500/15';
+    } else if ([95, 96, 99].includes(code)) {
+      status = 'Có dông sét';
+      icon = CloudLightning;
+      color = 'text-rose-500 bg-rose-500/10 border-rose-500/15';
+    }
+
+    return { status, icon, color };
+  };
+
   const citiesWeather = useMemo(() => {
     const hours = new Date().getHours();
-    const isDay = hours >= 6 && hours < 18;
+    const fallbackIsDay = hours >= 6 && hours < 18;
 
-    return [
-      { 
-        city: 'Hà Nội', 
-        temp: isDay ? 31 : 24, 
-        status: isDay ? 'Nắng ráo' : 'Mát mẻ', 
-        icon: isDay ? Sun : Moon, 
-        color: isDay ? 'text-amber-500 bg-amber-500/10 border-amber-500/15' : 'text-blue-400 bg-blue-500/10 border-blue-500/15' 
-      },
-      { 
-        city: 'TP. Hồ Chí Minh', 
-        temp: isDay ? 34 : 27, 
-        status: isDay ? 'Nắng nóng nhẹ' : 'Mát mẻ trời trong', 
-        icon: isDay ? CloudSun : Moon, 
-        color: isDay ? 'text-orange-500 bg-orange-500/10 border-orange-500/15' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/15' 
-      },
-      { 
-        city: 'Đà Nẵng', 
-        temp: isDay ? 32 : 25, 
-        status: isDay ? 'Gió nhẹ' : 'Lộng gió biển', 
-        icon: isDay ? Wind : Moon, 
-        color: isDay ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/15' : 'text-slate-400 bg-slate-500/10 border-slate-500/15'
-      },
-      { 
-        city: 'Đà Lạt', 
-        temp: isDay ? 22 : 15, 
-        status: isDay ? 'Sương mù nhẹ' : 'Lạnh trời sương', 
-        icon: isDay ? Cloud : Cloud, 
-        color: 'text-sky-500 bg-sky-500/10 border-sky-500/15' 
-      },
-      { 
-        city: 'Nha Trang', 
-        temp: isDay ? 32 : 26, 
-        status: isDay ? 'Nắng râm mát' : 'Sóng êm dịu', 
-        icon: isDay ? Sun : Moon, 
-        color: isDay ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/15' : 'text-violet-400 bg-violet-500/10 border-violet-500/15' 
+    return baseCities.map((cityObj) => {
+      const real = realtimeWeather[cityObj.city];
+      const isDay = real ? real.isDay : fallbackIsDay;
+      
+      let temp = cityObj.defaultTemp;
+      let status = cityObj.defaultStatus;
+      let icon = isDay ? Sun : Moon;
+      let color = isDay ? 'text-amber-500 bg-amber-500/10 border-amber-500/15' : 'text-blue-400 bg-blue-500/10 border-blue-500/15';
+
+      if (real) {
+        temp = Math.round(real.temp);
+        const details = getWeatherDetails(real.code, isDay);
+        status = details.status;
+        icon = details.icon;
+        color = details.color;
+      } else {
+        if (cityObj.city === 'Đà Lạt') {
+          icon = Cloud;
+          color = 'text-sky-500 bg-sky-500/10 border-sky-500/15';
+        } else if (cityObj.city === 'Đà Nẵng') {
+          icon = isDay ? Wind : Moon;
+          color = isDay ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/15' : 'text-slate-400 bg-slate-500/10 border-slate-500/15';
+        } else if (cityObj.city === 'TP. Hồ Chí Minh') {
+          icon = isDay ? CloudSun : Moon;
+          color = isDay ? 'text-orange-500 bg-orange-500/10 border-orange-500/15' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/15';
+        } else if (cityObj.city === 'Nha Trang') {
+          icon = isDay ? Sun : Moon;
+          color = isDay ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/15' : 'text-violet-400 bg-violet-500/10 border-violet-500/15';
+        }
       }
-    ];
-  }, []);
+
+      return {
+        city: cityObj.city,
+        temp,
+        status,
+        icon,
+        color
+      };
+    });
+  }, [baseCities, realtimeWeather]);
 
   const cycleWeatherCity = () => {
     const next = (weatherCityIndex + 1) % citiesWeather.length;
