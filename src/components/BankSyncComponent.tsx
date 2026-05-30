@@ -424,62 +424,64 @@ export default function BankSyncComponent({ wallets, categories, activeWalletId,
           </div>
         </div>
 
-        {/* Category Selector Modal */}
+        /* Category Selector Modal */
         {isCategorySelectorOpen && (
-          <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[150] flex flex-col animate-in slide-in-from-bottom-full duration-300">
-            <header className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">NHÓM GIAO DỊCH</h2>
-              <button onClick={() => setIsCategorySelectorOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500"><X size={20} /></button>
-            </header>
-            
-            <div className="flex p-4 gap-2 border-b border-slate-100 dark:border-slate-800">
-              {(['expense', 'income', 'debt'] as const).map(t => (
-                <button 
-                  key={t}
-                  onClick={() => setActiveCategoryTab(t)}
-                  className={cn(
-                    "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
-                    activeCategoryTab === t ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                  )}
-                >
-                  {t === 'expense' ? 'Chi tiêu' : t === 'income' ? 'Thu nhập' : 'Vay/Nợ'}
-                </button>
-              ))}
-            </div>
+          <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[150] animate-in slide-in-from-bottom-full duration-300">
+            <div className="flex flex-col h-full">
+              <header className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">NHÓM GIAO DỊCH</h2>
+                <button onClick={() => setIsCategorySelectorOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500"><X size={20} /></button>
+              </header>
+              
+              <div className="flex p-4 gap-2 border-b border-slate-100 dark:border-slate-800">
+                {(['expense', 'income', 'debt'] as const).map(t => (
+                  <button 
+                    key={t}
+                    onClick={() => setActiveCategoryTab(t)}
+                    className={cn(
+                      "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                      activeCategoryTab === t ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                    )}
+                  >
+                    {t === 'expense' ? 'Chi tiêu' : t === 'income' ? 'Thu nhập' : 'Vay/Nợ'}
+                  </button>
+                ))}
+              </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
-              <div className="space-y-1">
-                {categories.filter(c => c.type === activeCategoryTab && !c.parentId).map(root => (
-                  <div key={root.id} className="space-y-1">
-                    <button 
-                      onClick={() => { setSelectedCategoryId(root.id); setIsCategorySelectorOpen(false); }}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600">
-                            <DynamicIcon name={root.icon} size={20} color={root.color} />
-                         </div>
-                         <span className="font-bold text-slate-900 dark:text-white">{root.name}</span>
-                       </div>
-                       {selectedCategoryId === root.id && <Check size={20} className="text-[#1DBF73]" />}
-                    </button>
-                    {categories.filter(c => c.parentId === root.id && c.type === activeCategoryTab).map(child => (
+              <div className="flex-1 overflow-y-auto p-5 pb-32">
+                <div className="space-y-1">
+                  {categories.filter(c => c.type === activeCategoryTab && !c.parentId).map(root => (
+                    <div key={root.id} className="space-y-1">
                       <button 
-                        key={child.id} 
-                        onClick={() => { setSelectedCategoryId(child.id); setIsCategorySelectorOpen(false); }}
-                        className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors pl-12"
+                        onClick={() => { setSelectedCategoryId(root.id); setIsCategorySelectorOpen(false); }}
+                        className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                       >
                           <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 dark:bg-slate-850 text-slate-500">
-                              <DynamicIcon name={child.icon} size={16} color={child.color} />
+                           <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600">
+                              <DynamicIcon name={root.icon} size={20} color={root.color} />
                            </div>
-                           <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{child.name}</span>
+                           <span className="font-bold text-slate-900 dark:text-white">{root.name}</span>
                          </div>
-                         {selectedCategoryId === child.id && <Check size={16} className="text-[#1DBF73]" />}
+                         {selectedCategoryId === root.id && <Check size={20} className="text-[#1DBF73]" />}
                       </button>
-                    ))}
-                  </div>
-                ))}
+                      {categories.filter(c => c.parentId === root.id && c.type === activeCategoryTab).map(child => (
+                        <button 
+                          key={child.id} 
+                          onClick={() => { setSelectedCategoryId(child.id); setIsCategorySelectorOpen(false); }}
+                          className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors pl-12"
+                        >
+                            <div className="flex items-center gap-3">
+                             <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 dark:bg-slate-850 text-slate-500">
+                                <DynamicIcon name={child.icon} size={16} color={child.color} />
+                             </div>
+                             <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{child.name}</span>
+                           </div>
+                           {selectedCategoryId === child.id && <Check size={16} className="text-[#1DBF73]" />}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

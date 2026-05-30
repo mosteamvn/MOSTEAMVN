@@ -402,7 +402,7 @@ export default function AddTransactionModal({
       </header>
       
       {/* Scrollable Form Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-32">
         <div className="p-4 space-y-4">
           
           {/* Main Card */}
@@ -763,7 +763,7 @@ export default function AddTransactionModal({
              </button>
              <h2 className="text-[17px] font-bold text-slate-900 dark:text-white uppercase">Chọn nhóm</h2>
           </header>
-          <div className="flex-1 overflow-y-auto p-4 shrink-0">
+          <div className="flex-1 overflow-y-auto p-4 shrink-0 pb-32">
              {filteredCategories.length === 0 ? (
                 <div className="text-center text-slate-500 py-10 text-[15px]">Không có nhóm nào</div>
              ) : (
