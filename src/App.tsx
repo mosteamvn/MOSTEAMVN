@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
-import { Home, List, PieChart, User, PlusCircle } from 'lucide-react';
+import { Home, List, PieChart, User, PlusCircle, Calendar, Sparkles, Bot, Target, RefreshCw, Moon, Sun, Package, Shield } from 'lucide-react';
 import { cn } from './lib/utils';
 import { Transaction, Wallet, Category, Budget, NabeAccount } from './types';
 import DashboardView from './views/DashboardView';
@@ -30,11 +30,31 @@ import CalendarView from './views/CalendarView';
 export type ViewState = 'home' | 'transactions' | 'statistics' | 'profile' | 'categories' | 'wallets' | 'budgets' | 'insider' | 'admin' | 'premium' | 'recurring' | 'calendar' | 'nabe-accounts';
 
 export default function App() {
-  const { user, loading } = useAuth();
-  const [activeView, setActiveView] = useState<ViewState>('home');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [isAppLocked, setIsAppLocked] = useState<boolean>(true);
+  const { user, loading, logout } = useAuth();
+  const [activeView, setActiveViewRaw] = useState<ViewState>('home');
+  const [previousView, setPreviousView] = useState<ViewState | null>(null);
+
+  const setActiveView = (view: ViewState) => {
+    setActiveViewRaw(prev => {
+      if (prev !== view) {
+        setPreviousView(prev);
+      }
+      return view;
+    });
+  };
+
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const toggleTheme = () => {
+    const nextIsDark = !isDark;
+    setIsDark(nextIsDark);
+    if (nextIsDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   // Reset lock state when user logs out
   useEffect(() => {
@@ -42,6 +62,10 @@ export default function App() {
       setIsAppLocked(true);
     }
   }, [user]);
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isAppLocked, setIsAppLocked] = useState<boolean>(true);
 
   // Khởi tạo theme tối/sáng dựa trên localStorage hoặc tùy chọn hệ thống
   useEffect(() => {
@@ -439,6 +463,8 @@ export default function App() {
 
   const fetchData = async () => {}; // Used by some components temporarily
 
+  const isAdmin = user?.email === 'mosteamvn@gmail.com';
+
   const navItems = [
     { id: 'home', icon: Home, label: 'Trang chủ' },
     { id: 'transactions', icon: List, label: 'Giao dịch' },
@@ -447,50 +473,225 @@ export default function App() {
     { id: 'profile', icon: User, label: 'Cá nhân' },
   ];
 
+  // Grouped Navigation Items matching Nabe Money and Nabe Account sections
+  const nabeMoneyItems = [
+    { id: 'home', icon: Home, label: 'Bản tin Trang chủ' },
+    { id: 'transactions', icon: List, label: 'Lịch sử dòng tiền' },
+    { id: 'statistics', icon: PieChart, label: 'Thống kê & Biểu đồ' },
+    { id: 'insider', icon: Bot, label: 'Trợ lý tài chính AI' },
+    { id: 'budgets', icon: Target, label: 'Mục tiêu ngân sách' },
+    { id: 'recurring', icon: RefreshCw, label: 'Giao dịch định kỳ' },
+    { id: 'wallets', icon: User, label: 'Ví & Tài khoản', isWallet: true },
+    { id: 'categories', icon: List, label: 'Danh mục chi tiêu', isCategory: true },
+  ];
+
+  const nabeAccountItems = [
+    { id: 'premium', icon: Sparkles, label: 'Dịch vụ liên kết' },
+    { id: 'nabe-accounts', icon: Package, label: 'Kho Account' },
+  ];
+
+  const utilityItems = [
+    { id: 'calendar', icon: Calendar, label: 'Lịch vạn niên & Tử vi' },
+  ];
+
   return (
-    <div className="w-full min-h-[100dvh] bg-gradient-to-br from-slate-100 via-zinc-50 to-slate-200 dark:from-slate-950 dark:via-zinc-900 dark:to-slate-950 text-slate-800 dark:text-slate-100 font-sans flex flex-col items-center justify-center md:py-6">
-      <div className="w-full md:max-w-[430px] h-[100dvh] md:h-[880px] md:max-h-[94vh] bg-slate-50 dark:bg-slate-950 md:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.45)] relative overflow-hidden flex flex-col md:rounded-[40px] md:border-[8px] md:border-slate-900 dark:md:border-slate-800 animate-in fade-in duration-300">
+    <div className="w-full h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex overflow-hidden">
+      
+      {/* 1. PROFESSIONAL DESKTOP SIDEBAR (Visible only on md screens and up) */}
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white dark:bg-slate-900 border-r border-slate-200/50 dark:border-slate-850 h-full shrink-0 z-45 select-none">
         
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto pb-20">
-          <div className="w-full h-full">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-              </div>
-            ) : (
-              <>
-                {activeView === 'home' && (
-                  <DashboardView 
-                    wallets={wallets} 
-                    transactions={transactions} 
-                    budgets={budgets} 
-                    categories={categories} 
-                    user={user} 
-                    setActiveView={setActiveView} 
-                  />
+        {/* Elegant top logo header */}
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#1DBF73] text-white rounded-xl flex items-center justify-center font-black text-lg shadow-md shadow-[#1DBF73]/20 shrink-0">
+              N
+            </div>
+            <div>
+              <h1 className="font-extrabold text-sm text-slate-950 dark:text-white tracking-tight uppercase">Nabe Group</h1>
+              <p className="text-[10px] text-[#1DBF73] font-extrabold tracking-widest uppercase">Finance &amp; Subscription</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Middle Navigation */}
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 hide-scrollbar">
+          
+          {/* SECTION 1: NABE MONEY */}
+          <div className="space-y-1">
+            <span className="px-3.5 text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest block mb-2 font-mono">1. Nabe Money</span>
+            {nabeMoneyItems.map(item => {
+              const isActive = activeView === item.id || 
+                (item.isCategory && activeView === 'categories') || 
+                (item.isWallet && activeView === 'wallets');
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as ViewState)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] group relative",
+                    isActive 
+                      ? "bg-[#1DBF73]/10 text-[#1DBF73]" 
+                      : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  )}
+                >
+                  <item.icon size={16} className={cn("stroke-2 shrink-0 transition-transform group-hover:scale-105", isActive ? "text-[#1DBF73]" : "text-slate-400 dark:text-slate-500")} />
+                  <span className="truncate">{item.label}</span>
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1DBF73]" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* SECTION 2: NABE ACCOUNT */}
+          <div className="space-y-1">
+            <span className="px-3.5 text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-widest block mb-2 font-mono">2. Nabe Account</span>
+            {nabeAccountItems.map(item => {
+              const isActive = activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as ViewState)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] group relative",
+                    isActive 
+                      ? "bg-blue-500/10 text-blue-500" 
+                      : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  )}
+                >
+                  <item.icon size={16} className={cn("stroke-2 shrink-0 transition-transform group-hover:scale-105", isActive ? "text-blue-500" : "text-slate-400 dark:text-slate-500")} />
+                  <span className="truncate">{item.label}</span>
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* SECTION 3: UTILITIES */}
+          <div className="space-y-1">
+            <span className="px-3.5 text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest block mb-2 font-mono">3. Tiện ích &amp; Hệ thống</span>
+            {utilityItems.map(item => {
+              const isActive = activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as ViewState)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] group relative",
+                    isActive 
+                      ? "bg-slate-500/10 text-slate-850 dark:text-slate-100" 
+                      : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  )}
+                >
+                  <item.icon size={16} className={cn("stroke-2 shrink-0 transition-transform group-hover:scale-105", isActive ? "text-slate-900 dark:text-slate-200" : "text-slate-400 dark:text-slate-500")} />
+                  <span className="truncate">{item.label}</span>
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-slate-500" />}
+                </button>
+              );
+            })}
+
+            {isAdmin && (
+              <button
+                onClick={() => setActiveView('admin')}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] group mt-1.5 relative border border-dashed border-rose-500/10",
+                  activeView === 'admin' 
+                    ? "bg-rose-500/10 text-rose-500" 
+                    : "text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-450 hover:bg-rose-500/5"
                 )}
-                {activeView === 'transactions' && (
-                  <TransactionsView 
-                    transactions={transactions} 
-                    wallets={wallets}
-                    initialWalletId={selectedWalletIdForFilter}
-                    onDataChange={fetchData} 
-                    onEditTransaction={(tx) => {
-                      setEditingTransaction(tx);
-                      setIsAddModalOpen(true);
-                    }}
-                  />
-                )}
-                {activeView === 'statistics' && <StatisticsView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} />}
-                {activeView === 'profile' && <ProfileView setActiveView={setActiveView} />}
-              </>
+              >
+                <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-500 flex items-center justify-center text-[10px] uppercase font-black shrink-0">A</div>
+                <span className="truncate">Hệ Thống Admin</span>
+              </button>
             )}
           </div>
-        </main>
+        </div>
 
-        {/* Bottom Navigation */}
-        <nav className="absolute bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 px-4 z-40">
+        {/* Sidebar Footer - Account Profile info & Theme Switcher */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/40">
+          <div className="flex items-center justify-between gap-1.5 mb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#1DBF73] to-emerald-500 flex items-center justify-center font-bold text-white text-xs shrink-0 select-none">
+                {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : 'U'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{user?.displayName || 'Thành viên'}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-semibold leading-none">{user?.email}</p>
+              </div>
+            </div>
+
+            {/* Dark & Light toggler inside left bar footer */}
+            <button 
+              onClick={toggleTheme}
+              className="p-2 bg-white dark:bg-slate-800 border border-slate-250/20 dark:border-slate-700 rounded-xl text-slate-500 dark:text-slate-400 hover:text-[#1DBF73] transition-colors shrink-0 shadow-sm"
+              title="Chuyển đổi sáng/tối"
+            >
+              {isDark ? <Sun size={13} /> : <Moon size={13} />}
+            </button>
+          </div>
+
+          <button 
+            onClick={logout}
+            className="w-full py-2.5 px-3 bg-rose-500/10 hover:bg-rose-500/15 text-rose-500 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 border border-rose-500/10"
+          >
+            Đăng xuất
+          </button>
+        </div>
+      </aside>
+
+      {/* 2. MAIN ACTIVE VIEW AREA (Responsive full size layout) */}
+      <div className="flex-1 flex flex-col relative h-full overflow-hidden bg-slate-50 dark:bg-slate-950">
+        
+        {/* Floating Add Transaction FAB for PC viewports */}
+        <button
+          onClick={() => {
+            setEditingTransaction(null);
+            setIsAddModalOpen(true);
+          }}
+          className="hidden md:flex absolute bottom-8 right-8 z-[48] bg-[#1DBF73] hover:bg-emerald-600 text-white rounded-full p-4 pl-4.5 pr-5.5 shadow-xl shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95 transition-all duration-250 group items-center gap-2"
+        >
+          <PlusCircle size={18} className="transition-transform group-hover:rotate-90 duration-300" />
+          <span className="text-xs font-black uppercase tracking-wider">Thêm giao dịch</span>
+        </button>
+
+        {/* Dynamic Inner Content Loader */}
+        <div className="flex-1 overflow-y-auto relative w-full h-full">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1DBF73]"></div>
+            </div>
+          ) : (
+            <div className="w-full h-full">
+              {activeView === 'home' && (
+                <DashboardView 
+                  wallets={wallets} 
+                  transactions={transactions} 
+                  budgets={budgets} 
+                  categories={categories} 
+                  nabeAccounts={nabeAccounts}
+                  user={user} 
+                  setActiveView={setActiveView} 
+                />
+              )}
+              {activeView === 'transactions' && (
+                <TransactionsView 
+                  transactions={transactions} 
+                  wallets={wallets}
+                  initialWalletId={selectedWalletIdForFilter}
+                  onDataChange={fetchData} 
+                  onEditTransaction={(tx) => {
+                    setEditingTransaction(tx);
+                    setIsAddModalOpen(true);
+                  }}
+                />
+              )}
+              {activeView === 'statistics' && <StatisticsView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} />}
+              {activeView === 'profile' && <ProfileView setActiveView={setActiveView} />}
+            </div>
+          )}
+        </div>
+
+        {/* 3. MOBILE ONLY BOTTOM MENU */}
+        <nav className="flex md:hidden absolute bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 px-4 z-40">
           <div className="w-full">
             <ul className="flex justify-between items-center h-14">
               {navItems.map((item) => (
@@ -503,7 +704,7 @@ export default function App() {
                       }}
                       className="w-full flex justify-center items-center -mt-6"
                     >
-                      <div className="bg-[#1DBF73] text-white rounded-full p-3.5 border-4 border-slate-100 dark:border-slate-900 shadow-xl shadow-[#1DBF73]/30 hover:scale-105 active:scale-95 transition-transform">
+                      <div className="bg-[#1DBF73] text-white rounded-full p-3.5 border-4 border-slate-50 dark:border-slate-950 shadow-xl shadow-[#1DBF73]/30 hover:scale-105 active:scale-95 transition-transform">
                         <item.icon size={24} />
                       </div>
                     </button>
@@ -527,38 +728,39 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Fullscreen Overlay Views */}
+        {/* Fullscreen Overlay Views (In mobile layout they are fullscreen relative to window, on PC they stack cleanly inside this view domain) */}
         {!isLoading && (
           <>
-            {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} />}
-            {activeView === 'wallets' && <WalletsView wallets={wallets} categories={categories} setActiveView={setActiveView} onSelectWalletForFilter={setSelectedWalletIdForFilter} />}
-            {activeView === 'nabe-accounts' && <NabeAccountInventoryView nabeAccounts={nabeAccounts} setActiveView={setActiveView} />}
-            {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} />}
-            {activeView === 'insider' && <MoneyInsiderView transactions={transactions} wallets={wallets} setActiveView={setActiveView} />}
-            {activeView === 'admin' && <AdminView setActiveView={setActiveView} />}
-            {activeView === 'premium' && <PremiumView setActiveView={setActiveView} />}
-            {activeView === 'recurring' && <RecurringView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} />}
-            {activeView === 'calendar' && <CalendarView setActiveView={setActiveView} />}
+            {activeView === 'categories' && <CategoriesView categories={categories} onDataChange={fetchData} setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'wallets' && <WalletsView wallets={wallets} categories={categories} setActiveView={setActiveView} onSelectWalletForFilter={setSelectedWalletIdForFilter} previousView={previousView || undefined} />}
+            {activeView === 'nabe-accounts' && <NabeAccountInventoryView nabeAccounts={nabeAccounts} setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'budgets' && <BudgetsView transactions={transactions} categories={categories} setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'insider' && <MoneyInsiderView transactions={transactions} wallets={wallets} setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'admin' && <AdminView setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'premium' && <PremiumView nabeAccounts={nabeAccounts} setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'recurring' && <RecurringView transactions={transactions} categories={categories} wallets={wallets} setActiveView={setActiveView} previousView={previousView || undefined} />}
+            {activeView === 'calendar' && <CalendarView setActiveView={setActiveView} previousView={previousView || undefined} />}
           </>
         )}
 
-        {/* Modals & Toasters */}
-        <Toaster position="top-center" />
-        <ErrorBoundary>
-          <AddTransactionModal 
-            isOpen={isAddModalOpen} 
-            onClose={() => {
-              setIsAddModalOpen(false);
-              setEditingTransaction(null);
-            }} 
-            wallets={wallets}
-            categories={categories}
-            onSuccess={fetchData}
-            editingTransaction={editingTransaction}
-            transactions={transactions}
-          />
-        </ErrorBoundary>
       </div>
+
+      {/* Unified Modals and Toasters */}
+      <Toaster position="top-center" />
+      <ErrorBoundary>
+        <AddTransactionModal 
+          isOpen={isAddModalOpen} 
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setEditingTransaction(null);
+          }} 
+          wallets={wallets}
+          categories={categories}
+          onSuccess={fetchData}
+          editingTransaction={editingTransaction}
+          transactions={transactions}
+        />
+      </ErrorBoundary>
     </div>
   );
 }

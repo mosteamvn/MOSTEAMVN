@@ -12,9 +12,10 @@ interface CategoriesViewProps {
   categories: Category[];
   onDataChange: () => void;
   setActiveView: (view: ViewState) => void;
+  previousView?: ViewState;
 }
 
-export default function CategoriesView({ categories, onDataChange, setActiveView }: CategoriesViewProps) {
+export default function CategoriesView({ categories, onDataChange, setActiveView, previousView }: CategoriesViewProps) {
   const [activeTab, setActiveTab] = useState<TransactionType>('expense');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -101,12 +102,12 @@ export default function CategoriesView({ categories, onDataChange, setActiveView
 
   return (
     <div className={cn(
-      "flex flex-col absolute inset-0 bg-slate-50 dark:bg-slate-950 animate-in slide-in-from-right duration-300",
+      "flex flex-col absolute md:relative inset-0 md:inset-auto md:min-h-full md:w-full bg-slate-50 dark:bg-slate-950 animate-in slide-in-from-right duration-300",
       isModalOpen ? "z-[50]" : "z-30"
     )}>
       <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => setActiveView('profile')} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">
+          <button onClick={() => setActiveView(previousView || 'profile')} className="md:hidden p-2 -ml-2 rounded-full hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Nhóm giao dịch</h1>

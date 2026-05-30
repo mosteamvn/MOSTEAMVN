@@ -9,9 +9,10 @@ import toast from 'react-hot-toast';
 
 interface AdminViewProps {
   setActiveView: (view: any) => void;
+  previousView?: any;
 }
 
-export default function AdminView({ setActiveView }: AdminViewProps) {
+export default function AdminView({ setActiveView, previousView }: AdminViewProps) {
   const { user } = useAuth();
   const [users, setUsers] = useState<{ id: string; email: string; role: string; createdAt: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,16 +104,19 @@ export default function AdminView({ setActiveView }: AdminViewProps) {
   }, [users]);
 
   return (
-    <div className="flex flex-col absolute inset-0 bg-slate-50 dark:bg-slate-950 z-45 animate-in slide-in-from-right duration-300">
+    <div className="flex flex-col absolute md:relative inset-0 md:inset-auto md:min-h-full md:w-full bg-slate-50 dark:bg-slate-950 z-45 md:z-10 animate-in slide-in-from-right duration-300">
       {/* Header */}
       <header className="sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
-        <button 
-          onClick={() => setActiveView('profile')} 
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm text-slate-600 dark:text-slate-300"
-        >
-          <DynamicIcon name="ChevronLeft" size={20} />
-        </button>
-        <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight uppercase">Quản Trị Hệ Thống</h1>
+        <div className="flex items-center gap-3">
+          <button 
+            type="button"
+            onClick={() => setActiveView(previousView || 'profile')} 
+            className="md:hidden w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          >
+            <DynamicIcon name="ArrowLeft" size={20} />
+          </button>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Quản Trị Hệ Thống</h1>
+        </div>
         <button 
           onClick={loadUsers} 
           disabled={loading}

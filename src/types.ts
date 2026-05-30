@@ -93,6 +93,17 @@ export interface NabeAccount {
   slotCapacity: number; // 5 for family, 1 for regular, 0 for physical
   expiryDate: string; // ISO string
   createdAt: number;
+  activities?: { id: string; date: number; text: string }[];
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  notes?: string;
+  date: string;
+  type: 'note' | 'reminder';
+  time?: string;
+  isCompleted?: boolean;
 }
 
 

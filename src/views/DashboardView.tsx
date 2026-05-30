@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import * as LunarJS from 'lunar-javascript';
 const Solar = (LunarJS as any).Solar || (LunarJS as any).default?.Solar;
 import { formatCurrency, cn } from '../lib/utils';
-import { Wallet, Transaction, Budget, Category } from '../types';
+import { Wallet, Transaction, Budget, Category, NabeAccount } from '../types';
 import { DynamicIcon } from '../components/DynamicIcon';
 import { format, isThisMonth, isThisWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { 
@@ -31,7 +31,8 @@ import {
   Thermometer,
   CloudRain,
   Moon,
-  CloudLightning
+  CloudLightning,
+  Package
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from 'recharts';
 import { RecurringTemplate } from '../utils/recurrenceDetector';
@@ -41,11 +42,12 @@ interface DashboardViewProps {
   transactions: Transaction[];
   budgets?: Budget[];
   categories?: Category[];
+  nabeAccounts?: NabeAccount[];
   user?: any;
   setActiveView: (view: 'wallets' | 'transactions' | 'statistics' | 'insider' | 'budgets' | 'recurring' | any) => void;
 }
 
-export default function DashboardView({ wallets, transactions, budgets = [], categories = [], user, setActiveView }: DashboardViewProps) {
+export default function DashboardView({ wallets, transactions, budgets = [], categories = [], nabeAccounts = [], user, setActiveView }: DashboardViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
@@ -624,473 +626,524 @@ export default function DashboardView({ wallets, transactions, budgets = [], cat
           </div>
         </section>
       ) : (
-        <>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           
-          {/* 1. TỔNG SỐ DƯ (Show/Hide Toggle Eye Button) */}
-          <section className="bg-white dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-100 dark:border-slate-900 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Tổng số dư khả dụng</span>
-              <button 
-                onClick={toggleBalance}
-                className="p-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1.5 text-xs font-bold"
-              >
-                {showBalance ? (
-                  <>
-                    <EyeOff size={14} />
-                    <span>Ẩn</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye size={14} />
-                    <span>Xem</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                {showBalance ? formatCurrency(totalBalance) : "•••••••• đ"}
-              </span>
-            </div>
-          </section>
-
-          {/* LỊCH VẠN NIÊN & ÂM DƯƠNG QUICK ACCESS CARD */}
-          <section 
-            onClick={() => setActiveView('calendar')}
-            className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:border-[#B31E25]/30 dark:hover:border-[#DFAD16]/30 transition-all duration-300 cursor-pointer active:scale-[0.99]"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#B31E25]/10 to-[#DFAD16]/10 flex items-center justify-center text-[#B31E25] dark:text-[#FED871] shadow-inner group-hover:scale-105 transition-transform duration-300 border border-[#B31E25]/10">
-                  <Calendar size={22} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="text-[10px] font-black text-[#A91D22] dark:text-[#FED871] uppercase tracking-widest">Âm Dương Lịch</h4>
-                    <span className="text-[8px] bg-[#B31E25]/10 dark:bg-[#FED871]/15 text-[#B31E25] dark:text-[#FED871] px-1.5 py-0.5 rounded-md font-black uppercase">Hom nay</span>
-                  </div>
-                  <p className="text-lg font-black text-slate-900 dark:text-[#FCFAF2] leading-tight">
-                    {(() => {
-                      try {
-                        if (!Solar) return '--/--';
-                        const today = new Date();
-                        const solar = Solar.fromYmd(today.getFullYear(), today.getMonth() + 1, today.getDate());
-                        const lunar = solar.getLunar();
-                        const day = lunar.getDay();
-                        const dayPrefix = day <= 10 ? 'Mùng ' : 'Ngày ';
-                        const monthAbs = Math.abs(lunar.getMonth());
-                        const isLeapMonth = lunar.getMonth() < 0;
-                        return `${dayPrefix}${day} Tháng ${monthAbs}${isLeapMonth ? ' (Nhuận)' : ''}`;
-                      } catch {
-                        return '--/--';
-                      }
-                    })()}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">
-                    Lập hành sự ngày lành & Luận quẻ
-                  </p>
-                </div>
+          {/* LEFT CONTENT COLUMNS (Spans 2 columns on PC, full width on Mobile) */}
+          <div className="space-y-6 lg:col-span-2">
+            
+            {/* 1. TỔNG SỐ DƯ (Show/Hide Toggle Eye Button) */}
+            <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Tổng số dư khả dụng</span>
+                <button 
+                  onClick={toggleBalance}
+                  className="p-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1.5 text-xs font-bold"
+                >
+                  {showBalance ? (
+                    <>
+                      <EyeOff size={14} />
+                      <span>Ẩn</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={14} />
+                      <span>Xem</span>
+                    </>
+                  )}
+                </button>
               </div>
-              
-              <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-400 flex items-center justify-center group-hover:bg-[#B31E25]/10 group-hover:text-[#B31E25] transition-all">
-                <ArrowRight size={16} />
-              </div>
-            </div>
-          </section>
-
-          {/* TRUNG TÂM PHẢN HỒI & CẢNH BÁO THÔNG MINH */}
-          {alertsList.length > 0 && (
-            <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-rose-100 dark:border-rose-950/25 shadow-xs space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="flex justify-between items-center border-b border-rose-50/50 dark:border-rose-950/10 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500">
-                    <Bell size={16} className="animate-bounce text-rose-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Nhắc nhở & Cảnh báo ({alertsList.length})
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Hạn mức chi tiêu & Kỳ hạn cần lưu ý</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                {alertsList.map((alert) => {
-                  const severityStyles = 
-                    alert.severity === 'high'
-                      ? 'bg-rose-50/60 dark:bg-rose-950/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
-                      : alert.severity === 'medium'
-                        ? 'bg-amber-50/60 dark:bg-amber-950/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
-                        : 'bg-blue-50/60 dark:bg-slate-800/40 border-slate-300/20 text-blue-700 dark:text-blue-400';
-
-                  const badgeStyles =
-                    alert.severity === 'high'
-                      ? 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-200/40 text-rose-600 dark:text-rose-300'
-                      : alert.severity === 'medium'
-                        ? 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-200/40 text-amber-600 dark:text-amber-300'
-                        : 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-200/40 text-blue-600 dark:text-blue-300';
-
-                  return (
-                    <div 
-                      key={alert.id}
-                      className={`p-3.5 rounded-xl border flex flex-col gap-2 relative transition-all duration-300 ${severityStyles}`}
-                    >
-                      <button 
-                        onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
-                        className="absolute top-3 right-3 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-
-                      <div className="flex items-start gap-2.5 pr-6">
-                        <span className="text-sm mt-0.5">
-                          {alert.severity === 'high' ? '🚨' : alert.severity === 'medium' ? '⚠️' : 'ℹ️'}
-                        </span>
-                        <div>
-                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                            {alert.title}
-                          </h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                            {alert.desc}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2 mt-1">
-                        <button
-                          onClick={() => {
-                            setDismissedAlerts(prev => [...prev, alert.id]);
-                          }}
-                          className="px-3 py-1 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold text-slate-550 dark:text-slate-300 transition-colors uppercase tracking-wider"
-                        >
-                          Bỏ qua
-                        </button>
-                        <button
-                          onClick={() => setActiveView(alert.actionView)}
-                          className={`px-3 py-1 rounded-lg border text-[10px] font-extrabold uppercase tracking-wider transition-colors shadow-xs ${badgeStyles}`}
-                        >
-                          {alert.actionLabel}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {showBalance ? formatCurrency(totalBalance) : "•••••••• đ"}
+                </span>
               </div>
             </section>
-          )}
 
-          {/* 2. BÁO CÁO THÁNG NÀY DẠNG BIỂU ĐỒ (Click and view stats details) */}
-          <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-900 shadow-xs space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
-                  <PieIcon size={16} className="text-[#1DBF73]" />
-                  Báo cáo tháng {new Date().getMonth() + 1}
-                </h3>
-                <p className="text-[11px] text-slate-400 font-semibold uppercase">Xem đồ thị dòng tiền</p>
-              </div>
-              <button 
-                onClick={() => setActiveView('statistics')} 
-                className="text-[#1DBF73] text-xs font-extrabold uppercase hover:opacity-80 transition-opacity flex items-center gap-0.5"
-              >
-                Xem chi tiết
-                <ChevronRight size={14} />
-              </button>
-            </div>
-
-            {/* Inflow & Outflow Monthly overview */}
-            <div className="grid grid-cols-2 gap-3.5">
-              <div className="bg-[#1DBF73]/5 dark:bg-[#1DBF73]/10 p-3 rounded-xl border border-[#1DBF73]/10 flex flex-col justify-center">
-                <span className="text-[10px] text-slate-500 font-extrabold uppercase flex items-center gap-1">
-                  <TrendingDown size={12} className="text-[#1DBF73]" /> Thu nhập
-                </span>
-                <span className="text-base font-extrabold text-[#1DBF73] mt-1">
-                  {showBalance ? formatCurrency(incomeThisMonth) : "•••• đ"}
-                </span>
-              </div>
-              <div className="bg-rose-500/5 dark:bg-rose-500/10 p-3 rounded-xl border border-rose-505/10 flex flex-col justify-center">
-                <span className="text-[10px] text-slate-500 font-extrabold uppercase flex items-center gap-1">
-                  <TrendingUp size={12} className="text-rose-500" /> Chi tiêu
-                </span>
-                <span className="text-base font-extrabold text-rose-500 mt-1">
-                  {showBalance ? formatCurrency(expenseThisMonth) : "•••• đ"}
-                </span>
-              </div>
-            </div>
-
-            {/* Recharts Area Chart */}
-            <div className="h-44 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="colorChi" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorThu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1DBF73" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#1DBF73" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="dayLabel" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1e293b', color: '#fff', fontSize: '11px' }}
-                    formatter={(value) => formatCurrency(Number(value))}
-                  />
-                  <Area type="monotone" dataKey="Chi tiêu" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorChi)" />
-                  <Area type="monotone" dataKey="Thu nhập" stroke="#1DBF73" strokeWidth={2} fillOpacity={1} fill="url(#colorThu)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-
-          {/* 3. CHI TIÊU NHIỀU NHẤT (With category and details) */}
-          <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-900 shadow-xs space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/10 pb-3">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">Chi tiêu nhiều nhất</h3>
-                <p className="text-[11px] text-slate-400 font-semibold uppercase">Nhóm dịch vụ chiếm tỷ trọng cao</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Tabs view tuần/tháng */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl shadow-xs">
-                  <button
-                    type="button"
-                    onClick={() => setHighestSpendingTab('week')}
-                    className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
-                      highestSpendingTab === 'week' 
-                        ? "bg-[#1DBF73] text-white shadow-sm" 
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    )}
-                  >
-                    Tuần này
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHighestSpendingTab('month')}
-                    className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
-                      highestSpendingTab === 'month' 
-                        ? "bg-[#1DBF73] text-white shadow-sm" 
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    )}
-                  >
-                    Tháng này
-                  </button>
+            {/* 2. BÁO CÁO THÁNG NÀY DẠNG BIỂU ĐỒ (Click and view stats details) */}
+            <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
+                    <PieIcon size={16} className="text-[#1DBF73]" />
+                    Báo cáo tháng {new Date().getMonth() + 1}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase">Xem đồ thị dòng tiền</p>
                 </div>
                 <button 
-                  onClick={() => setActiveView('transactions')} 
-                  className="text-slate-400 text-xs font-bold uppercase hover:text-[#1DBF73] transition-colors flex items-center gap-0.5 shrink-0"
+                  onClick={() => setActiveView('statistics')} 
+                  className="text-[#1DBF73] text-xs font-extrabold uppercase hover:opacity-80 transition-opacity flex items-center gap-0.5"
                 >
-                  Nhật kí
+                  Xem chi tiết
                   <ChevronRight size={14} />
                 </button>
               </div>
-            </div>
 
-            {highestSpendings.length > 0 ? (
-              <div className="space-y-3">
-                {highestSpendings.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100/10 hover:border-red-500/20 transition-colors animate-in fade-in duration-300">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-11 h-11 rounded-full flex items-center justify-center shadow-sm"
-                        style={{ backgroundColor: `${item.category.color}15`, color: item.category.color }}
-                      >
-                        <DynamicIcon name={item.category.icon} size={22} />
+              {/* Inflow & Outflow Monthly overview */}
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="bg-[#1DBF73]/5 dark:bg-[#1DBF73]/10 p-3 rounded-xl border border-[#1DBF73]/10 flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 font-extrabold uppercase flex items-center gap-1">
+                    <TrendingDown size={12} className="text-[#1DBF73]" /> Thu nhập
+                  </span>
+                  <span className="text-base font-extrabold text-[#1DBF73] mt-1">
+                    {showBalance ? formatCurrency(incomeThisMonth) : "•••• đ"}
+                  </span>
+                </div>
+                <div className="bg-rose-500/5 dark:bg-rose-500/10 p-3 rounded-xl border border-rose-500/10 flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 font-extrabold uppercase flex items-center gap-1">
+                    <TrendingUp size={12} className="text-rose-500" /> Chi tiêu
+                  </span>
+                  <span className="text-base font-extrabold text-rose-500 mt-1">
+                    {showBalance ? formatCurrency(expenseThisMonth) : "•••• đ"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Recharts Area Chart */}
+              <div className="h-48 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorChi" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorThu" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#1DBF73" stopOpacity={0.25}/>
+                        <stop offset="95%" stopColor="#1DBF73" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="dayLabel" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1e293b', color: '#fff', fontSize: '11px' }}
+                      formatter={(value) => formatCurrency(Number(value))}
+                    />
+                    <Area type="monotone" dataKey="Chi tiêu" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorChi)" />
+                    <Area type="monotone" dataKey="Thu nhập" stroke="#1DBF73" strokeWidth={2} fillOpacity={1} fill="url(#colorThu)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            {/* 3. CHI TIÊU NHIỀU NHẤT (With category and details) */}
+            <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/10 pb-3">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">Chi tiêu nhiều nhất</h3>
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase">Nhóm dịch vụ chiếm tỷ trọng cao</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Tabs view tuần/tháng */}
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setHighestSpendingTab('week')}
+                      className={cn(
+                        "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
+                        highestSpendingTab === 'week' 
+                          ? "bg-[#1DBF73] text-white shadow-sm" 
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                      )}
+                    >
+                      Tuần này
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHighestSpendingTab('month')}
+                      className={cn(
+                        "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
+                        highestSpendingTab === 'month' 
+                          ? "bg-[#1DBF73] text-white shadow-sm" 
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                      )}
+                    >
+                      Tháng này
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => setActiveView('transactions')} 
+                    className="text-slate-400 text-xs font-bold uppercase hover:text-[#1DBF73] transition-colors flex items-center gap-0.5 shrink-0"
+                  >
+                    Nhật kí
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {highestSpendings.length > 0 ? (
+                <div className="space-y-3">
+                  {highestSpendings.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100/10 hover:border-red-500/20 transition-colors animate-in fade-in duration-300">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-11 h-11 rounded-full flex items-center justify-center shadow-sm"
+                          style={{ backgroundColor: `${item.category.color}15`, color: item.category.color }}
+                        >
+                          <DynamicIcon name={item.category.icon} size={22} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                            {item.category.name}
+                          </h4>
+                          <span className="text-[11px] text-rose-500 font-semibold uppercase tracking-wider">
+                            Chiếm {Math.round((item.total / (expenseThisPeriod || 1)) * 100)}%
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                          {item.category.name}
-                        </h4>
-                        <span className="text-[11px] text-rose-500 font-semibold uppercase tracking-wider">
-                          Chiếm {Math.round((item.total / (expenseThisPeriod || 1)) * 100)}%
+                      <div className="text-right">
+                        <span className="text-base font-extrabold text-[#EF4444] dark:text-red-400">
+                          -{formatCurrency(item.total)}
                         </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-base font-extrabold text-[#EF4444] dark:text-red-400">
-                        -{formatCurrency(item.total)}
-                      </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 bg-slate-50 dark:bg-slate-950 rounded-xl text-slate-400 text-xs font-semibold">
+                  Không ghi nhận chi tiêu phát sinh nào trong {highestSpendingTab === 'week' ? 'tuần này' : 'tháng này'}!
+                </div>
+              )}
+            </section>
+
+            {/* VÍ CỦA TÔI */}
+            <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex justify-between items-center mb-3.5">
+                <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Ví của tôi</h2>
+                <button onClick={() => setActiveView('wallets')} className="text-[#1DBF73] text-xs font-bold uppercase tracking-wider hover:opacity-80 transition-opacity">Xem tất cả</button>
+              </div>
+              <div className="grid grid-cols-2 gap-3.5">
+                {wallets.slice(0, 2).map(wallet => (
+                  <div 
+                    key={wallet.id} 
+                    className="rounded-xl p-4 text-white relative overflow-hidden shadow-xs cursor-pointer active:scale-95 transition-transform"
+                    style={{ backgroundColor: wallet.color }}
+                    onClick={() => setActiveView('wallets')}
+                  >
+                    <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-4 -translate-y-4">
+                      <DynamicIcon name={wallet.icon} size={64} />
+                    </div>
+                    <div className="relative z-10 space-y-4">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                        <DynamicIcon name={wallet.icon} size={16} />
+                      </div>
+                      <div>
+                        <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider line-clamp-1">{wallet.name}</p>
+                        <p className="font-extrabold text-sm sm:text-base break-words leading-tight mt-1">
+                          {showBalance ? formatCurrency(wallet.balance) : "•••• đ"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-6 bg-slate-50 dark:bg-slate-950 rounded-xl text-slate-400 text-xs font-semibold">
-                Không ghi nhận chi tiêu phát sinh nào trong {highestSpendingTab === 'week' ? 'tuần này' : 'tháng này'}!
-              </div>
-            )}
-          </section>
+            </section>
 
-          {/* VÍ CỦA TÔI */}
-          <section>
-            <div className="flex justify-between items-center mb-3.5">
-              <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Ví của tôi</h2>
-              <button onClick={() => setActiveView('wallets')} className="text-[#1DBF73] text-xs font-bold uppercase tracking-wider hover:opacity-80 transition-opacity">Xem tất cả</button>
-            </div>
-            <div className="grid grid-cols-2 gap-3.5">
-              {wallets.slice(0, 2).map(wallet => (
-                <div 
-                  key={wallet.id} 
-                  className="rounded-xl p-4 text-white relative overflow-hidden shadow-xs cursor-pointer active:scale-95 transition-transform"
-                  style={{ backgroundColor: wallet.color }}
-                  onClick={() => setActiveView('wallets')}
-                >
-                  <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-4 -translate-y-4">
-                    <DynamicIcon name={wallet.icon} size={64} />
-                  </div>
-                  <div className="relative z-10 space-y-4">
-                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <DynamicIcon name={wallet.icon} size={16} />
-                    </div>
-                    <div>
-                      <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider line-clamp-1">{wallet.name}</p>
-                      <p className="font-extrabold text-sm sm:text-base break-words leading-tight mt-1">
-                        {showBalance ? formatCurrency(wallet.balance) : "•••• đ"}
-                      </p>
-                    </div>
-                  </div>
+            {/* 4. CÁC GIAO GẦN ĐÂY */}
+            <section className="space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/10 pb-3">
+                <div>
+                  <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Giao dịch gần đây</h2>
+                  <p className="text-[11px] text-slate-400 font-semibold uppercase">Tối đa 3 giao dịch mới</p>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* 4. CÁC GIAO DỊCH GẦN ĐÂY LIỆT KÊ KHOẢNG 3 GIAO DỊCH VỚI TABS */}
-          <section className="space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/10 pb-3">
-              <div>
-                <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Giao dịch gần đây</h2>
-                <p className="text-[11px] text-slate-400 font-semibold uppercase">Tối đa 3 giao dịch mới</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Tabs view tuần/tháng */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl shadow-xs">
-                  <button
-                    type="button"
-                    onClick={() => setRecentTab('week')}
-                    className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
-                      recentTab === 'week' 
-                        ? "bg-[#1DBF73] text-white shadow-sm" 
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    )}
-                  >
-                    Tuần này
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecentTab('month')}
-                    className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
-                      recentTab === 'month' 
-                        ? "bg-[#1DBF73] text-white shadow-sm" 
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    )}
-                  >
-                    Tháng này
-                  </button>
-                </div>
-                <button 
-                  onClick={() => setActiveView('transactions')} 
-                  className="text-[#1DBF73] text-xs font-extrabold uppercase hover:opacity-85 transition-opacity flex items-center gap-0.5 shrink-0"
-                >
-                  Xem tất cả
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
-            
-            <div className="space-y-3 animate-in fade-in duration-300">
-              {filteredRecentTransactions.map(tx => (
-                <div 
-                  key={tx.id} 
-                  className="group bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 flex items-center justify-between hover:border-[#1DBF73]/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm"
-                      style={{ backgroundColor: tx.category?.color + '15', color: tx.category?.color }}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setRecentTab('week')}
+                      className={cn(
+                        "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
+                        recentTab === 'week' 
+                          ? "bg-[#1DBF73] text-white shadow-sm" 
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                      )}
                     >
-                      <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
-                        <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                          {formatTimeStr(tx.date)}
-                        </span>
+                      Tuần này
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRecentTab('month')}
+                      className={cn(
+                        "px-3 py-1 text-xs font-bold rounded-lg transition-all active:scale-95",
+                        recentTab === 'month' 
+                          ? "bg-[#1DBF73] text-white shadow-sm" 
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                      )}
+                    >
+                      Tháng này
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => setActiveView('transactions')} 
+                    className="text-[#1DBF73] text-xs font-extrabold uppercase hover:opacity-85 transition-opacity flex items-center gap-0.5 shrink-0"
+                  >
+                    Xem tất cả
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-3 animate-in fade-in duration-300">
+                {filteredRecentTransactions.map(tx => (
+                  <div 
+                    key={tx.id} 
+                    className="group bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 flex items-center justify-between hover:border-[#1DBF73]/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm"
+                        style={{ backgroundColor: tx.category?.color + '15', color: tx.category?.color }}
+                      >
+                        <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                       </div>
-                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                        {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : `${format(new Date(tx.date), 'dd MMM yyyy')} • ${tx.wallet?.name || ''}`}
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                          <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                            {formatTimeStr(tx.date)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : `${format(new Date(tx.date), 'dd MMM yyyy')} • ${tx.wallet?.name || ''}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-sm ${
+                        tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) 
+                          ? 'text-[#1DBF73]' 
+                          : 'text-slate-900 dark:text-slate-100'
+                      }`}>
+                        {tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) ? '+' : '-'}
+                        {formatCurrency(tx.amount)}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-bold text-sm ${
-                      tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) 
-                        ? 'text-[#1DBF73]' 
-                        : 'text-slate-900 dark:text-slate-100'
-                    }`}>
-                      {tx.type === 'income' || (tx.type === 'debt' && ['9', '10'].includes(tx.categoryId)) ? '+' : '-'}
-                      {formatCurrency(tx.amount)}
+                ))}
+                {filteredRecentTransactions.length === 0 && (
+                  <div className="text-center py-8 text-slate-400 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl">
+                    Không có giao dịch nào trong {recentTab === 'week' ? 'tuần này' : 'tháng này'}
+                  </div>
+                )}
+              </div>
+            </section>
+
+          </div>
+
+          {/* RIGHT SIDEBAR COLUMN (Sidebar utility tools on PC, cascades on Mobile) */}
+          <div className="space-y-6">
+
+            {/* LỊCH VẠN NIÊN & ÂM DƯƠNG QUICK ACCESS CARD */}
+            <section 
+              onClick={() => setActiveView('calendar')}
+              className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:border-[#B31E25]/30 dark:hover:border-[#DFAD16]/30 transition-all duration-300 cursor-pointer active:scale-[0.99]"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#B31E25]/10 to-[#DFAD16]/10 flex items-center justify-center text-[#B31E25] dark:text-[#FED871] shadow-inner group-hover:scale-105 transition-transform duration-300 border border-[#B31E25]/10 shrink-0">
+                    <Calendar size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="text-[10px] font-black text-[#A91D22] dark:text-[#FED871] uppercase tracking-widest">Âm Dương Lịch</h4>
+                      <span className="text-[8px] bg-[#B31E25]/10 dark:bg-[#FED871]/15 text-[#B31E25] dark:text-[#FED871] px-1.5 py-0.5 rounded-md font-black uppercase">Hôm nay</span>
+                    </div>
+                    <p className="text-base font-black text-slate-900 dark:text-[#FCFAF2] leading-tight">
+                      {(() => {
+                        try {
+                          if (!Solar) return '--/--';
+                          const today = new Date();
+                          const solar = Solar.fromYmd(today.getFullYear(), today.getMonth() + 1, today.getDate());
+                          const lunar = solar.getLunar();
+                          const day = lunar.getDay();
+                          const dayPrefix = day <= 10 ? 'Mùng ' : 'Ngày ';
+                          const monthAbs = Math.abs(lunar.getMonth());
+                          const isLeapMonth = lunar.getMonth() < 0;
+                          return `${dayPrefix}${day} Tháng ${monthAbs}${isLeapMonth ? ' (Nhuận)' : ''}`;
+                        } catch {
+                          return '--/--';
+                        }
+                      })()}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">
+                      Lập hành sự ngày lành & Luận quẻ
                     </p>
                   </div>
                 </div>
-              ))}
-              {filteredRecentTransactions.length === 0 && (
-                <div className="text-center py-8 text-slate-400 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 rounded-xl">
-                  Không có giao dịch nào trong {recentTab === 'week' ? 'tuần này' : 'tháng này'}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* 5. MONEY INSIDER (Integrated Assistant with dynamic AI insights trigger) */}
-          <section className="relative overflow-hidden p-5 rounded-2xl bg-gradient-to-br from-indigo-950 via-[#0f113a] to-slate-950 border border-indigo-500/10 shadow-lg shadow-indigo-500/5 space-y-4">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#1DBF73]/5 rounded-full blur-3xl"></div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#1DBF73]/10 p-2 rounded-xl border border-[#1DBF73]/20 flex items-center justify-center text-[#1DBF73]">
-                  <Bot size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5 uppercase tracking-wide">
-                    Insider AI
-                    <Sparkles size={14} className="text-[#1DBF73] animate-pulse" />
-                  </h3>
-                  <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Cố vấn tài chính</span>
+                
+                <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-400 flex items-center justify-center group-hover:bg-[#B31E25]/10 group-hover:text-[#B31E25] transition-all">
+                  <ArrowRight size={16} />
                 </div>
               </div>
-              <div className="bg-indigo-500/20 px-2.5 py-1 rounded-full text-indigo-300 text-[10px] font-extrabold uppercase border border-indigo-500/10">
-                {insiderPreviewAdvice.status}
-              </div>
-            </div>
+            </section>
 
-            <div className="bg-white/[0.03] rounded-xl p-3.5 border border-white/5 space-y-1">
-              <p className="text-slate-400 text-[10px] uppercase font-extrabold tracking-wider flex items-center gap-1">
-                <Lightbulb size={12} className="text-indigo-400" /> Nhận định tuần này
-              </p>
-              <p className="text-slate-200 text-sm leading-relaxed font-medium">
-                "{insiderPreviewAdvice.tip}"
-              </p>
-            </div>
-
-            <button 
-              onClick={() => setActiveView('insider')} 
-              className="w-full py-2.5 bg-gradient-to-r from-indigo-505 via-[#1DBF73] to-emerald-500 hover:opacity-90 active:scale-[0.99] rounded-xl text-white font-extrabold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-[#1DBF73]/10"
-              style={{ backgroundColor: '#1DBF73' }}
+            {/* QUẢN LÝ NABE ACCOUNT QUICK ACCESS CARD */}
+            <section 
+              onClick={() => setActiveView('premium')}
+              className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:border-[#1DBF73]/30 dark:hover:border-[#1DBF73]/30 transition-all duration-300 cursor-pointer active:scale-[0.99]"
             >
-              Phân tích chuyên sâu từ AI
-              <ArrowRight size={14} />
-            </button>
-          </section>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-[#1DBF73] flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform duration-300 border border-emerald-500/10 shrink-0">
+                    <Package size={22} className="stroke-[2]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="text-[10px] font-black text-[#1DBF73] uppercase tracking-widest">Hệ thống Nabe Account</h4>
+                      {nabeAccounts && nabeAccounts.length > 0 && (
+                        <span className="text-[8px] bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-md font-black uppercase">
+                          {nabeAccounts.length} kho
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-150 leading-tight">
+                      Quản lý tài khoản dùng chung
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">
+                      {(() => {
+                        if (!nabeAccounts || nabeAccounts.length === 0) {
+                          return 'Xem thông tin rủi ro gia hạn & tài liệu kho';
+                        }
+                        const availableSlots = nabeAccounts.reduce((sum, acc) => {
+                          if (acc.type === 'physical') return sum;
+                          const occupied = acc.members.filter(m => m.name || m.email || m.profile || m.pin).length;
+                          return sum + (acc.slotCapacity - occupied);
+                        }, 0);
+                        return `Trống ${availableSlots} slots sẵn sàng bàn giao`;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="w-9 h-9 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-400 flex items-center justify-center group-hover:bg-[#1DBF73]/10 group-hover:text-[#1DBF73] transition-all">
+                  <ArrowRight size={16} />
+                </div>
+              </div>
+            </section>
 
-          <div className="h-6"></div>
-        </>
+            {/* TRUNG TÂM PHẢN HỒI & CẢNH BÁO THÔNG MINH */}
+            {alertsList.length > 0 && (
+              <section className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-rose-100 dark:border-rose-950/25 shadow-xs space-y-4 animate-in fade-in duration-300">
+                <div className="flex justify-between items-center border-b border-rose-50/50 dark:border-rose-950/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500">
+                      <Bell size={16} className="text-rose-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Nhắc nhở & Cảnh báo ({alertsList.length})
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {alertsList.map((alert) => {
+                    const severityStyles = 
+                      alert.severity === 'high'
+                        ? 'bg-rose-50/60 dark:bg-rose-950/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                        : alert.severity === 'medium'
+                          ? 'bg-amber-50/60 dark:bg-amber-950/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                          : 'bg-blue-50/60 dark:bg-slate-800/40 border-slate-300/20 text-blue-700 dark:text-blue-400';
+
+                    const badgeStyles =
+                      alert.severity === 'high'
+                        ? 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-200/40 text-rose-600 dark:text-rose-300'
+                        : alert.severity === 'medium'
+                          ? 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-200/40 text-amber-600 dark:text-amber-300'
+                          : 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-200/40 text-blue-600 dark:text-blue-300';
+
+                    return (
+                      <div 
+                        key={alert.id}
+                        className={`p-3.5 rounded-xl border flex flex-col gap-2 relative transition-all duration-300 ${severityStyles}`}
+                      >
+                        <button 
+                          onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
+                          className="absolute top-3 right-3 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X size={14} />
+                        </button>
+
+                        <div className="flex items-start gap-2.5 pr-6">
+                          <span className="text-sm mt-0.5">
+                            {alert.severity === 'high' ? '🚨' : alert.severity === 'medium' ? '⚠️' : 'ℹ️'}
+                          </span>
+                          <div>
+                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                              {alert.title}
+                            </h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                              {alert.desc}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-1">
+                          <button
+                            onClick={() => {
+                              setDismissedAlerts(prev => [...prev, alert.id]);
+                            }}
+                            className="px-3 py-1 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold text-slate-500 dark:text-slate-300 transition-colors uppercase tracking-wider"
+                          >
+                            Bỏ qua
+                          </button>
+                          <button
+                            onClick={() => setActiveView(alert.actionView)}
+                            className={`px-3 py-1 rounded-lg border text-[10px] font-extrabold uppercase tracking-wider transition-colors shadow-xs ${badgeStyles}`}
+                          >
+                            {alert.actionLabel}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* 5. MONEY INSIDER (Integrated Assistant with dynamic AI insights trigger) */}
+            <section className="relative overflow-hidden p-5 rounded-2xl bg-gradient-to-br from-indigo-950 via-[#0f113a] to-slate-950 border border-indigo-500/10 shadow-lg shadow-indigo-500/5 space-y-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#1DBF73]/5 rounded-full blur-3xl"></div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-[#1DBF73]/10 p-2 rounded-xl border border-[#1DBF73]/20 flex items-center justify-center text-[#1DBF73]">
+                    <Bot size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5 uppercase tracking-wide">
+                      Insider AI
+                      <Sparkles size={14} className="text-[#1DBF73] animate-pulse" />
+                    </h3>
+                    <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Cố vấn tài chính</span>
+                  </div>
+                </div>
+                <div className="bg-indigo-505/20 px-2.5 py-1 rounded-full text-indigo-300 text-[10px] font-extrabold uppercase border border-indigo-500/10">
+                  {insiderPreviewAdvice.status}
+                </div>
+              </div>
+
+              <div className="bg-white/[0.03] rounded-xl p-3.5 border border-white/5 space-y-1">
+                <p className="text-slate-400 text-[10px] uppercase font-extrabold tracking-wider flex items-center gap-1">
+                  <Lightbulb size={12} className="text-indigo-400" /> Nhận định tuần này
+                </p>
+                <p className="text-slate-200 text-sm leading-relaxed font-medium">
+                  "{insiderPreviewAdvice.tip}"
+                </p>
+              </div>
+
+              <button 
+                onClick={() => setActiveView('insider')} 
+                className="w-full py-2.5 hover:opacity-90 active:scale-[0.99] rounded-xl text-white font-extrabold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-[#1DBF73]/10"
+                style={{ backgroundColor: '#1DBF73' }}
+              >
+                Phân tích Chuyên sâu AI
+                <ArrowRight size={14} />
+              </button>
+            </section>
+
+          </div>
+
+        </div>
       )}
     </div>
   );

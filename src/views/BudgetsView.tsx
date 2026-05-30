@@ -1,6 +1,6 @@
 import { useState, useEffect, FormEvent, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { Target, ChevronLeft, Plus, Edit2, Trash2, X, Delete } from 'lucide-react';
+import { Target, ChevronLeft, Plus, Edit2, Trash2, X, Delete, ArrowLeft } from 'lucide-react';
 import { Budget, Category, Transaction } from '../types';
 import { ViewState } from '../App';
 import { formatCurrency } from '../lib/utils';
@@ -14,9 +14,10 @@ interface BudgetsViewProps {
   transactions: Transaction[];
   categories: Category[];
   setActiveView: (view: ViewState) => void;
+  previousView?: ViewState;
 }
 
-export default function BudgetsView({ transactions, categories, setActiveView }: BudgetsViewProps) {
+export default function BudgetsView({ transactions, categories, setActiveView, previousView }: BudgetsViewProps) {
   const { user } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,16 +194,18 @@ export default function BudgetsView({ transactions, categories, setActiveView }:
 
   return (
     <div className={cn(
-      "flex flex-col absolute inset-0 bg-[#F3F4F6] dark:bg-slate-900 animate-in slide-in-from-right duration-300",
+      "flex flex-col absolute md:relative inset-0 md:inset-auto md:min-h-full md:w-full bg-[#F3F4F6] dark:bg-slate-900 animate-in slide-in-from-right duration-300",
       isModalOpen ? "z-[50]" : "z-30"
     )}>
-      <header className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md sticky top-0 z-30 shadow-sm border-b border-slate-100/50 dark:border-slate-800/10">
-        <button onClick={() => setActiveView('profile')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
-          <ChevronLeft size={24} />
-        </button>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white relative top-0.5 uppercase">Ngân sách</h2>
-        <button onClick={() => openForm()} className="p-2 -mr-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-[#1DBF73]">
-          <Plus size={24} />
+      <header className="sticky top-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-100/50 dark:border-slate-800/10 shrink-0">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setActiveView(previousView || 'profile')} className="md:hidden p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors text-slate-500">
+            <ArrowLeft size={20} />
+          </button>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight uppercase">Ngân sách</h2>
+        </div>
+        <button onClick={() => openForm()} className="p-2 bg-[#1DBF73] text-white rounded-full shadow-md shadow-[#1DBF73]/30 hover:scale-105 transition-transform">
+          <Plus size={18} />
         </button>
       </header>
 

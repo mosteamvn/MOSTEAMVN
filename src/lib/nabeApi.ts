@@ -13,7 +13,7 @@ export const subscribeNabeAccounts = (userId: string, cb: (data: NabeAccount[]) 
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'nabe_accounts'));
 };
 
-export const addNabeAccount = async (account: Omit<NabeAccount, 'id' | 'createdAt'>) => {
+export const addNabeAccount = async (account: Omit<NabeAccount, 'id' | 'createdAt' | 'userId'>) => {
   try {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('Not logged in');

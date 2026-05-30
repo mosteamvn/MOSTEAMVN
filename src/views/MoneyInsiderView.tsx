@@ -3,7 +3,7 @@ import { Transaction, Wallet } from '../types';
 import { 
   ChevronLeft, Sparkles, AlertTriangle, TrendingUp, TrendingDown, 
   Target, Lightbulb, RefreshCw, Bot, Loader2, Send, Heart, Brain, 
-  CheckCircle2, Plus, Zap, MessageSquare, History, Trophy, Clock
+  CheckCircle2, Plus, Zap, MessageSquare, History, Trophy, Clock, ArrowLeft
 } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
 import { subDays, isAfter } from 'date-fns';
@@ -13,6 +13,7 @@ interface MoneyInsiderViewProps {
   transactions: Transaction[];
   wallets: Wallet[];
   setActiveView: (view: any) => void;
+  previousView?: any;
 }
 
 // Interfaces for new features
@@ -45,7 +46,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-export default function MoneyInsiderView({ transactions, wallets, setActiveView }: MoneyInsiderViewProps) {
+export default function MoneyInsiderView({ transactions, wallets, setActiveView, previousView }: MoneyInsiderViewProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'analysis' | 'optimize' | 'behavior' | 'assistant'>('analysis');
   const [loading, setLoading] = useState(false);
@@ -497,16 +498,18 @@ export default function MoneyInsiderView({ transactions, wallets, setActiveView 
   };
 
   return (
-    <div className="flex flex-col absolute inset-0 bg-[#07051a] pb-[calc(env(safe-area-inset-bottom)+5.5rem)] z-30 animate-in slide-in-from-right duration-300">
+    <div className="flex flex-col absolute md:relative inset-0 md:inset-auto md:min-h-full md:w-full bg-[#07051a] pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:pb-6 z-30 md:z-10 animate-in slide-in-from-right duration-300">
       {/* Header */}
-      <header className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 px-4 bg-[#07051a]/95 backdrop-blur-md sticky top-0 z-30 border-b border-white/5 shadow-sm">
-        <button onClick={() => setActiveView('home')} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-white">
-          <ChevronLeft size={24} />
-        </button>
-        <h2 className="text-base font-bold text-white relative top-0.5 flex items-center gap-1.5 uppercase tracking-wide">
-          <Sparkles size={16} className="text-[#1DBF73] animate-pulse" />
-          Nabe AI Advisor
-        </h2>
+      <header className="flex items-center justify-between pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 bg-[#07051a]/95 backdrop-blur-md sticky top-0 z-30 border-b border-white/5 shadow-sm shrink-0">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setActiveView(previousView || 'home')} className="md:hidden p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-white">
+            <ArrowLeft size={20} />
+          </button>
+          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5 uppercase">
+            <Sparkles size={16} className="text-[#1DBF73] animate-pulse" />
+            Nabe AI Advisor
+          </h2>
+        </div>
         <button 
           onClick={fetchAiAnalysis} 
           disabled={loading && activeTab === 'analysis'}

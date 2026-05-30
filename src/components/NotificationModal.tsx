@@ -112,10 +112,10 @@ export default function NotificationModal({ onClose }: NotificationModalProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-end p-0"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-end p-0"
     >
       {/* Background close area */}
-      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className="fixed inset-0" onClick={onClose}></div>
 
       <motion.div 
         initial={{ y: 50, scale: 0.95 }}

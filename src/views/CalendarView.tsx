@@ -12,7 +12,8 @@ import {
   BookOpen, 
   X, 
   CalendarDays,
-  FileText
+  FileText,
+  ArrowLeft
 } from 'lucide-react';
 import { CalendarEvent } from '../types';
 import { cn } from '../lib/utils';
@@ -108,9 +109,10 @@ function translateShengXiao(chStr: string): string {
 
 interface CalendarViewProps {
   setActiveView: (view: any) => void;
+  previousView?: any;
 }
 
-export default function CalendarView({ setActiveView }: CalendarViewProps) {
+export default function CalendarView({ setActiveView, previousView }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -430,17 +432,17 @@ export default function CalendarView({ setActiveView }: CalendarViewProps) {
   };
 
   return (
-    <div className="flex flex-col absolute inset-0 bg-[#FCFAF2] dark:bg-[#180A0B] animate-in slide-in-from-right duration-300 z-30 overflow-hidden">
+    <div className="flex flex-col absolute md:relative inset-0 md:inset-auto md:min-h-full md:w-full bg-[#FCFAF2] dark:bg-[#180A0B] animate-in slide-in-from-right duration-300 z-30 md:z-10 overflow-hidden">
       
       {/* HEADER - Traditional Red & Gold Banner */}
       <header className="sticky top-0 bg-[#B31E25] text-white z-30 pt-[calc(env(safe-area-inset-top)+1rem)] pb-3 px-5 flex items-center justify-between border-b border-[#DFAD16]/40 shrink-0 shadow-md">
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => setActiveView('home')} 
-            className="p-2 -ml-2 rounded-full hover:bg-black/10 text-white transition-colors flex items-center justify-center"
+            onClick={() => setActiveView(previousView || 'home')} 
+            className="md:hidden p-2 -ml-2 rounded-full hover:bg-black/10 text-white transition-colors flex items-center justify-center"
             id="btn-calendar-back"
           >
-            <ChevronLeft size={24} className="text-[#FED871]" />
+            <ArrowLeft size={20} className="text-[#FED871]" />
           </button>
           <h1 className="text-lg font-black tracking-wider text-[#FCFAF2] uppercase flex items-center gap-2">
             <CalendarDays className="text-[#FED871] w-5 h-5 fill-[#FED871]/15" />

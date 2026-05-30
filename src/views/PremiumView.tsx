@@ -14,9 +14,12 @@ import {
 } from '../lib/api';
 import { PremiumProduct, PremiumSubscription } from '../types';
 import toast from 'react-hot-toast';
+import NabeAccountInventoryView from './NabeAccountInventoryView';
 
 interface PremiumViewProps {
+  nabeAccounts?: any[];
   setActiveView: (view: any) => void;
+  previousView?: any;
 }
 
 const DEFAULT_PRODUCTS = [
@@ -119,9 +122,12 @@ const formatNumberWithCommas = (value: string | number) => {
   return Number(clean).toLocaleString('en-US');
 };
 
-export default function PremiumView({ setActiveView }: PremiumViewProps) {
+export default function PremiumView({ nabeAccounts = [], setActiveView, previousView }: PremiumViewProps) {
   const { user } = useAuth();
   const isAdmin = user?.email === 'mosteamvn@gmail.com';
+
+  // Toggle between Subscriptions list and Account Inventory
+  const [activeTab, setActiveTab] = useState<'subscriptions' | 'inventory'>('subscriptions');
 
   // State arrays
   const [products, setProducts] = useState<PremiumProduct[]>([]);
@@ -454,14 +460,14 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
   };
 
   return (
-    <div className="flex flex-col absolute inset-0 bg-slate-50 dark:bg-slate-950 z-45 animate-in slide-in-from-right duration-300">
+    <div className="flex flex-col absolute md:relative inset-0 md:inset-auto md:min-h-full md:w-full bg-slate-50 dark:bg-slate-950 z-45 md:z-10 animate-in slide-in-from-right duration-300">
       {/* Header */}
       <header className="sticky top-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md z-30 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-3 px-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 shrink-0">
         <button 
-          onClick={() => setActiveView('profile')} 
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm text-slate-700 dark:text-slate-300 pointer-events-auto hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          onClick={() => setActiveView(previousView || 'profile')} 
+          className="md:hidden w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm text-slate-700 dark:text-slate-300 pointer-events-auto hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
         >
-          <DynamicIcon name="ChevronLeft" size={20} />
+          <DynamicIcon name="ArrowLeft" size={20} />
         </button>
         <div className="text-center">
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-snug uppercase">
@@ -479,8 +485,46 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
       {/* Main Body */}
       <div className="flex-1 overflow-y-auto px-5 py-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] space-y-6">
         
-        {/* Info Area */}
-        {!isAdmin && (
+        {/* Segment Sub-tabs Switcher */}
+        <div className="flex gap-1.5 bg-slate-200/50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-300/40 dark:border-slate-800/40 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveTab('subscriptions')}
+            className={cn(
+              "flex-1 py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5",
+              activeTab === 'subscriptions'
+                ? "bg-white dark:bg-slate-800 text-[#1DBF73] shadow-sm font-black"
+                : "bg-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+            )}
+          >
+            <DynamicIcon name="Sparkles" size={14} />
+            Hạn Premium ({subListDecorated.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('inventory')}
+            className={cn(
+              "flex-1 py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5",
+              activeTab === 'inventory'
+                ? "bg-white dark:bg-slate-800 text-[#1DBF73] shadow-sm font-black"
+                : "bg-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+            )}
+          >
+            <DynamicIcon name="Package" size={14} />
+            Kho Account ({nabeAccounts.length})
+          </button>
+        </div>
+
+        {activeTab === 'inventory' ? (
+          <NabeAccountInventoryView 
+            nabeAccounts={nabeAccounts} 
+            setActiveView={setActiveView} 
+            isEmbedded={true} 
+          />
+        ) : (
+          <>
+            {/* Info Area */}
+            {!isAdmin && (
           <div className="bg-emerald-50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900/40 p-4 rounded-2xl flex gap-3.5 shadow-xs">
             <div className="text-[#1DBF73] shrink-0 mt-0.5">
               <DynamicIcon name="Sparkles" size={20} />
@@ -688,10 +732,12 @@ export default function PremiumView({ setActiveView }: PremiumViewProps) {
         </div>
 
         <div className="h-6"></div>
+          </>
+        )}
       </div>
 
       {/* Fixed Bottom Navigation */}
-      {isAdmin && (
+      {isAdmin && activeTab === 'subscriptions' && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-3 z-50 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           <button
             onClick={() => setActiveView('home')}

@@ -167,7 +167,7 @@ export default function PinLockView({ mode, onUnlock, onSuccess, onCancel }: Pin
   };
 
   return (
-    <div className="absolute inset-0 bg-slate-950 text-white flex flex-col items-center justify-between z-50 p-6 select-none font-sans">
+    <div className="fixed inset-0 bg-slate-950 text-white flex flex-col items-center justify-between z-[100] p-6 select-none font-sans">
       
       {/* Dynamic Header Actions */}
       <div className="w-full flex justify-between items-center h-12">
