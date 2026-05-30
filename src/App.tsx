@@ -495,7 +495,7 @@ export default function App() {
   ];
 
   return (
-    <div className="w-full h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex overflow-hidden">
+    <div className="w-full h-[100dvh] bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans flex overflow-hidden">
       
       {/* 1. PROFESSIONAL DESKTOP SIDEBAR (Visible only on md screens and up) */}
       <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white dark:bg-slate-900 border-r border-slate-200/50 dark:border-slate-850 h-full shrink-0 z-45 select-none">
@@ -691,7 +691,7 @@ export default function App() {
         </div>
 
         {/* 3. MOBILE ONLY BOTTOM MENU */}
-        <nav className="flex md:hidden absolute bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 px-4 z-40">
+        <nav className="flex md:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 px-4 z-40">
           <div className="w-full">
             <ul className="flex justify-between items-center h-14">
               {navItems.map((item) => (

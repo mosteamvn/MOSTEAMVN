@@ -8,6 +8,7 @@ import {
 import { formatCurrency, cn } from '../lib/utils';
 import { subDays, isAfter } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import { PersonalAdvisory } from '../components/PersonalAdvisory';
 
 interface MoneyInsiderViewProps {
   transactions: Transaction[];
@@ -48,7 +49,7 @@ interface ChatMessage {
 
 export default function MoneyInsiderView({ transactions, wallets, setActiveView, previousView }: MoneyInsiderViewProps) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'analysis' | 'optimize' | 'behavior' | 'assistant'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'optimize' | 'behavior' | 'assistant' | 'personal-advisor'>('analysis');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -569,6 +570,18 @@ export default function MoneyInsiderView({ transactions, wallets, setActiveView,
           <MessageSquare size={13} />
           Trợ Lý AI
         </button>
+        <button 
+          onClick={() => setActiveTab('personal-advisor')}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-2 text-[11px] font-bold rounded-xl transition-all border",
+            activeTab === 'personal-advisor' 
+              ? "bg-gradient-to-r from-[#1DBF73] to-emerald-500 text-white border-transparent shadow-lg shadow-[#1DBF73]/20" 
+              : "border-transparent text-slate-400 hover:text-white"
+          )}
+        >
+          <Heart size={13} />
+          Tư Vấn
+        </button>
       </div>
 
       {/* Main Panel Content */}
@@ -764,176 +777,47 @@ export default function MoneyInsiderView({ transactions, wallets, setActiveView,
                 <div className="space-y-0.5">
                   <h3 className="text-white font-extrabold text-sm">Thói Quen Tâm Lý</h3>
                   <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Đánh giá hành vi tiêu dùng và tác động cảm xúc của bạn dưới góc nhìn tâm lý học tài chính.
+                    Đánh giá hành vi tiêu dùng và tác động cảm xúc.
                   </p>
                 </div>
               </div>
 
               <form onSubmit={handleLogBehavior} className="space-y-4 pt-1">
-                {/* Form Buttons Selector */}
                 <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
-                  <button 
-                    type="button"
-                    onClick={() => setBeFormType('impulsive')}
-                    className={cn(
-                      "p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all",
-                      beFormType === 'impulsive' 
-                        ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40" 
-                        : "bg-white/[0.01] border-white/5 text-slate-400"
-                    )}
-                  >
-                    ⚡ Bốc đồng
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setBeFormType('stress')}
-                    className={cn(
-                      "p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all",
-                      beFormType === 'stress' 
-                        ? "bg-rose-500/20 text-rose-400 border-rose-500/40" 
-                        : "bg-white/[0.01] border-white/5 text-slate-400"
-                    )}
-                  >
-                    🧘 Tiêu stress
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setBeFormType('regret')}
-                    className={cn(
-                      "p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all",
-                      beFormType === 'regret' 
-                        ? "bg-amber-500/20 text-amber-500 border-amber-500/40" 
-                        : "bg-white/[0.01] border-white/5 text-slate-400"
-                    )}
-                  >
-                    🥀 Tiếc nuối
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setBeFormType('victory')}
-                    className={cn(
-                      "p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all",
-                      beFormType === 'victory' 
-                        ? "bg-emerald-500/20 text-[#1DBF73] border-emerald-500/40" 
-                        : "bg-white/[0.01] border-white/5 text-slate-400"
-                    )}
-                  >
-                    🏆 Nhịn chi
-                  </button>
+                  <button type="button" onClick={() => setBeFormType('impulsive')} className={cn("p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all", beFormType === 'impulsive' ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40" : "bg-white/[0.01] border-white/5 text-slate-400")}>⚡ Bốc đồng</button>
+                  <button type="button" onClick={() => setBeFormType('stress')} className={cn("p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all", beFormType === 'stress' ? "bg-rose-500/20 text-rose-400 border-rose-500/40" : "bg-white/[0.01] border-white/5 text-slate-400")}>🧘 Tiêu stress</button>
+                  <button type="button" onClick={() => setBeFormType('regret')} className={cn("p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all", beFormType === 'regret' ? "bg-amber-500/20 text-amber-500 border-amber-500/40" : "bg-white/[0.01] border-white/5 text-slate-400")}>🥀 Tiếc nuối</button>
+                  <button type="button" onClick={() => setBeFormType('victory')} className={cn("p-2.5 rounded-xl border flex items-center justify-center gap-1 cursor-pointer transition-all", beFormType === 'victory' ? "bg-emerald-500/20 text-[#1DBF73] border-emerald-500/40" : "bg-white/[0.01] border-white/5 text-slate-400")}>🏆 Nhịn chi</button>
                 </div>
-
-                {/* Amount and Note inputs */}
                 <div className="space-y-2">
-                  <input 
-                    type="number" 
-                    placeholder="Số tiền liên quan (đ) - Ví dụ: 150000"
-                    value={beFormAmount}
-                    onChange={(e) => setBeFormAmount(e.target.value)}
-                    className="w-full bg-[#0d0a25] border border-white/5 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-[#1DBF73]/30"
-                  />
-                  <textarea 
-                    placeholder="Viết ghi chú ví dụ: Quẹt Shopee lúc 2h sáng mua sắm đồ mĩ phẩm ít xài / Thèm trà sữa lúc đang bực sếp..."
-                    value={beFormNote}
-                    onChange={(e) => setBeFormNote(e.target.value)}
-                    rows={2}
-                    className="w-full bg-[#0d0a25] border border-white/5 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-[#1DBF73]/30 resize-none"
-                    required
-                  />
+                  <input type="number" placeholder="Số tiền liên quan (đ)" value={beFormAmount} onChange={(e) => setBeFormAmount(e.target.value)} className="w-full bg-[#0d0a25] border border-white/5 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-[#1DBF73]/30" />
+                  <textarea placeholder="Ghi chú..." value={beFormNote} onChange={(e) => setBeFormNote(e.target.value)} rows={2} className="w-full bg-[#0d0a25] border border-white/5 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-[#1DBF73]/30 resize-none" required />
                 </div>
-
-                <button 
-                  type="submit"
-                  disabled={beAnalyzing || !beFormNote.trim()}
-                  className="w-full bg-[#1DBF73] text-slate-900 font-extrabold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {beAnalyzing ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      AI đang phân tích...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={14} />
-                      Lưu & Phân Tích AI
-                    </>
-                  )}
+                <button type="submit" disabled={beAnalyzing || !beFormNote.trim()} className="w-full bg-[#1DBF73] text-slate-900 font-extrabold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer">
+                  {beAnalyzing ? <>AI đang phân tích...</> : <>Lưu & Phân Tích</>}
                 </button>
               </form>
             </div>
-
-            {/* Past list */}
-            <div className="space-y-4">
-              <h4 className="text-white font-extrabold text-[14px] flex items-center gap-2 px-1">
-                <History size={16} className="text-indigo-400" />
-                Lịch sử hành vi
-              </h4>
-
-              {behaviors.length === 0 ? (
-                <div className="text-center py-6 border border-dashed border-white/5 rounded-2xl">
-                  <p className="text-slate-500 text-xs font-semibold">Chưa có hành vi nào được lưu.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {behaviors.map((log) => {
-                    const tagInfo = log.type === 'impulsive' 
-                      ? { label: '⚡ Bốc Đồng', bg: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/10' }
-                      : log.type === 'stress'
-                      ? { label: '🧘 Tiêu Stress', bg: 'bg-rose-500/10 text-rose-400 border-rose-500/10' }
-                      : log.type === 'regret'
-                      ? { label: '🥀 Tiếc Nuối', bg: 'bg-amber-400/10 text-amber-400 border-amber-400/10' }
-                      : { label: '🏆 Nhịn Chi', bg: 'bg-emerald-500/10 text-[#1DBF73] border-emerald-500/10' };
-
-                    return (
-                      <div 
-                        key={log.id}
-                        className="bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 space-y-3"
-                      >
+            {/* List */}
+             <div className="space-y-4">
+              <h4 className="text-white font-extrabold text-[14px] flex items-center gap-2 px-1">Lịch sử hành vi</h4>
+               {behaviors.map((log) => (
+                      <div key={log.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 space-y-3">
                         <div className="flex justify-between items-start gap-2">
-                          <div className="flex flex-col gap-1">
-                            <span className={cn("text-[8px] font-bold px-2 py-0.5 rounded-full border w-fit uppercase tracking-wider", tagInfo.bg)}>
-                              {tagInfo.label}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-bold mt-1">
-                              {new Date(log.date).toLocaleString('vi-VN')}
-                            </span>
-                          </div>
-
-                          <button 
-                            onClick={() => handleDeleteBehavior(log.id)}
-                            className="text-slate-500 hover:text-slate-300 text-xs px-2 py-1 transition-colors"
-                          >
-                            Xóa
-                          </button>
+                          <span className="text-[8px] font-bold px-2 py-0.5 rounded-full border">{log.type}</span>
+                          <button onClick={() => handleDeleteBehavior(log.id)} className="text-slate-500 text-xs">Xóa</button>
                         </div>
-
-                        <div className="space-y-1">
-                          <p className="text-white text-xs font-bold leading-relaxed">"{log.note}"</p>
-                          {log.amount > 0 && (
-                            <p className="text-[#1DBF73] text-[11px] font-bold font-mono">
-                              Số tiền: {formatCurrency(log.amount)}
-                            </p>
-                          )}
-                        </div>
-
-                        {log.aiFeedback && (
-                          <div className="mt-3.5 pt-3.5 border-t border-white/5 bg-white/[0.01] p-3 rounded-xl border border-white/5/20 flex gap-2 items-start">
-                            <Bot size={15} className="text-[#1DBF73] shrink-0 mt-0.5" />
-                            <div className="space-y-1">
-                              <h5 className="text-[11px] font-black text-rose-400">{log.aiTitle || 'Phản hồi Nabe AI'}</h5>
-                              <p className="text-slate-300 text-[11px] leading-relaxed font-semibold">{log.aiFeedback}</p>
-                            </div>
-                          </div>
-                        )}
+                        <p className="text-white text-xs font-bold leading-relaxed">"{log.note}"</p>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
             </div>
           </div>
         )}
 
-        {/* ----------------TAB 4: DYNAMIC CHAT MESSENGER---------------- */}
+        {/* ----------------TAB 5: PERSONAL ADVISOR (NEW) ---------------- */}
+        {activeTab === 'personal-advisor' && (
+          <PersonalAdvisory transactions={transactions} />
+        )}
         {activeTab === 'assistant' && (
           <div className="flex flex-col h-[calc(100vh-16rem)] justify-between space-y-4 animate-in fade-in duration-200">
             {/* Messages box */}

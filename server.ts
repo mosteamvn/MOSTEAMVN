@@ -235,50 +235,31 @@ HƯỚNG DẪN TRẢ LỜI:
   }
 });
 
-app.post('/api/money-insider/behavior', async (req, res) => {
-  const { type, note, amount } = req.body;
+
+app.post('/api/ai-behavior-analysis', async (req, res) => {
+  const { transactions } = req.body;
   const ai = getGeminiClient();
 
-  const typeMap: any = {
-    impulsive: "Chi tiêu ngẫu hứng, bốc đồng",
-    stress: "Ăn uống/mua sắm do áp lực, căng thẳng",
-    regret: "Mua sắm hối tiếc (mua xong ít/không dùng)",
-    victory: "Chiến thắng cám dỗ (nhịn mua thành công để tích luỹ)"
-  };
-
-  const strType = typeMap[type] || type;
-
   if (!ai) {
-    // Rule-based rich psychological behavioral feedback when offline
-    let fbTitle = "Phản hồi tâm lý Nabe";
-    let fbText = "Hành vi mua sắm luôn gắn liền với dopamine. Hãy chú ý đến cảm xúc kích hoạt nảy sinh.";
-
-    if (type === 'impulsive') {
-      fbTitle = "🧠 Liệu pháp Trì hoãn Dopamine";
-      fbText = `Hành vi "${note}" với số tiền ${amount ? amount.toLocaleString('vi-VN') + 'đ' : 'nhất định'} thuộc nhóm ngẫu hứng. Để khắc phục, bạn hãy vẽ một 'vạch ranh giới 72h'. Điện thoại hay đồ gia dụng muốn mua, hãy để trong giỏ, sau 3 ngày nếu vẫn thấy cần thì mới thanh toán. 85% trường hợp bạn sẽ quên béng nó đi!`;
-    } else if (type === 'stress') {
-      fbTitle = "🧘 Xoa dịu tâm thức thay vì bóp ví";
-      fbText = `Khi căng thẳng, não bộ tìm kiếm phần thưởng thức thời (đồ ngọt, trà sữa, mua sắm). Việc tiêu dùng để xoa dịu stress chỉ có tác dụng nhất thời nhưng tạo áp lực lớn lên tài khố lâu dài. Lần tới, hãy thử đi bộ nhanh 10 phút, nghe bản nhạc không lời hoặc uống một ly nước lọc ấm áp nhé!`;
-    } else if (type === 'regret') {
-      fbTitle = "📉 Đánh giá hiệu năng tiêu dùng";
-      fbText = `Mua sắm hối hận vì không dùng đến xảy ra do hiệu ứng 'con người lý tưởng tương lai' (chúng ta mua món đồ vì nghĩ mình sẽ siêng năng tập gym, siêng đọc sách nhưng thực tế không làm). Hãy thuê hoặc trải nghiệm thử trước khi mua đứt một thiết bị công nghệ hay công cụ nào đó đắt tiền.`;
-    } else if (type === 'victory') {
-      fbTitle = "🏆 Tín đồ kỷ luật Tài khố tối thượng";
-      fbText = `Xin chúc mừng! Bạn đã kiên cường vượt qua cám dỗ trì hoãn mua sắm ngắn hạn và tích lũy thặng dư thành công thêm ${amount ? amount.toLocaleString('vi-VN') + 'đ' : 'một khoản'}! Đây chính là thói quen của triệu phú tự thân. Hãy tự thưởng một ly nước lọc mát lành hoặc ghi nhận vào heo đất để thấy số tiền tích luỹ phình to!`;
-    }
-
-    return res.json({ title: fbTitle, feedback: fbText });
+    return res.json({
+        analysis: "Do bạn chưa kích hoạt AI API key, mình chỉ có thể đưa ra lời khuyên chung: Hãy nhớ rằng việc chăm sóc bản thân chính là cách tốt nhất để duy trì năng lượng bền vững phục vụ gia đình!.",
+        advice: "Đừng cảm thấy tội lỗi. Mua một món đồ cần thiết không phải là lãng phí, đó là khoản tái đầu tư vào năng suất và tinh thần của chính bạn."
+    });
   }
 
   try {
-    const prompt = `Bạn là một tiến sĩ tâm lý học hành vi tài chính hàng đầu.
-Người dùng vừa tự ghi nhận một hành vi tiêu dùng / tài chính thực tế như sau:
-- Loại hành vi: ${strType}
-- Ghi chú cụ thể: "${note}"
-- Số tiền liên đới: ${amount ? amount.toLocaleString('vi-VN') + ' đ' : 'Chưa định lượng'}
+    const totalTransactions = transactions.length;
+    const expenseTransactions = transactions.filter((t: any) => t.type === 'expense');
+    
+    const prompt = `Bạn là một chuyên gia tư vấn tâm lý tài chính cá nhân tên là 'Nabe AI Core'.
+Người dùng đang chia sẻ rằng họ cảm thấy "tội lỗi" khi chi tiền cho bản thân (ví dụ: mua cái áo 250k), trong khi chi tiền cho gia đình lại rất thoải mái.
 
-Yêu cầu phân tích:
-Hãy đưa ra một phản hồi tâm lý học tài chính thông minh, ngắn gọn, ấm áp bằng tiếng Việt giúp người dùng hiểu rõ bản chất cảm xúc thúc đẩy hành vi này và đề xuất giải pháp đào tạo thói quen tốt tương ứng. Trả về định dạng JSON khớp với schema yêu cầu.`;
+Dữ liệu giao dịch người dùng: ${JSON.stringify(expenseTransactions.slice(-20))}
+
+Yêu cầu:
+1. Phân tích ngắn gọn hành vi chi tiêu dựa trên dữ liệu giao dịch (nếu có).
+2. Hãy đưa ra lời khuyên/phân tích tâm lý tích cực, sâu sắc để giúp người dùng hiểu rằng chi tiêu hợp lý cho bản thân là cần thiết để bảo vệ năng lượng cá nhân và sự bền vững khi chăm sóc gia đình.
+3. Trả về format JSON: { "analysis": "...", "advice": "..." }.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
@@ -288,21 +269,23 @@ Hãy đưa ra một phản hồi tâm lý học tài chính thông minh, ngắn 
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: "Tiêu đề ngắn gọn bắt mắt, pha chút biểu tượng cảm xúc, ví dụ: '🧠 Phản ứng Dopamine'" },
-            feedback: { type: Type.STRING, description: "Lời khuyên/nhận xét tâm lý hành vi chi tiết, thấu hiểu, đưa ra mẹo thực tế khắc phục hoặc hoan nghênh (tối đa 4 câu)." }
+            analysis: { type: Type.STRING },
+            advice: { type: Type.STRING }
           },
-          required: ["title", "feedback"]
+          required: ["analysis", "advice"]
         }
       }
     });
 
     const parsed = JSON.parse(response.text.trim());
     res.json(parsed);
+
   } catch (err: any) {
-    console.error('Behavior analysis error:', err);
-    res.status(500).json({ error: 'Failed to analyze behavior: ' + err.message });
+    console.error('AI Behavior Analysis error:', err);
+    res.status(500).json({ error: 'Failed analysis: ' + err.message });
   }
 });
+
 
 // Auth (Mock)
 app.post('/api/auth/login', (req, res) => {
