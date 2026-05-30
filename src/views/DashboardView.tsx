@@ -589,16 +589,16 @@ export default function DashboardView({ wallets, transactions, budgets = [], cat
           <div className="space-y-3">
             {searchResults.map(tx => (
               <div key={tx.id} className="group bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800/60 flex items-center justify-between hover:border-[#1DBF73]/30 transition-colors cursor-pointer" onClick={() => setActiveView('transactions')}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div 
-                    className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm shrink-0"
                     style={{ backgroundColor: tx.category?.color + '15', color: tx.category?.color }}
                   >
                     <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
-                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">{tx.note || format(new Date(tx.date), 'dd MMM yyyy')} • {tx.wallet?.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{tx.category?.name}</p>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5 break-words line-clamp-1">{tx.note || format(new Date(tx.date), 'dd MMM yyyy')} • {tx.wallet?.name}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -773,14 +773,14 @@ export default function DashboardView({ wallets, transactions, budgets = [], cat
                 <div className="space-y-3">
                   {highestSpendings.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100/10 hover:border-red-500/20 transition-colors animate-in fade-in duration-300">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div 
-                          className="w-11 h-11 rounded-full flex items-center justify-center shadow-sm"
+                          className="w-11 h-11 rounded-full flex items-center justify-center shadow-sm shrink-0"
                           style={{ backgroundColor: `${item.category.color}15`, color: item.category.color }}
                         >
                           <DynamicIcon name={item.category.icon} size={22} />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-slate-900 dark:text-white text-sm">
                             {item.category.name}
                           </h4>
@@ -887,21 +887,21 @@ export default function DashboardView({ wallets, transactions, budgets = [], cat
                     key={tx.id} 
                     className="group bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 flex items-center justify-between hover:border-[#1DBF73]/30 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center opacity-90 shadow-sm shrink-0"
                         style={{ backgroundColor: tx.category?.color + '15', color: tx.category?.color }}
                       >
                         <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{tx.category?.name}</p>
                           <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
                             {formatTimeStr(tx.date)}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5 break-words line-clamp-1">
                           {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : `${format(new Date(tx.date), 'dd MMM yyyy')} • ${tx.wallet?.name || ''}`}
                         </p>
                       </div>

@@ -400,21 +400,21 @@ export default function TransactionsView({ transactions, wallets = [], initialWa
                       onClick={() => onEditTransaction?.(tx)}
                       className="p-4 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 active:scale-[0.99] transition-all cursor-pointer select-none"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0"
                           style={tx.category?.color ? { backgroundColor: tx.category.color + '15', color: tx.category.color } : {}}
                         >
                           <DynamicIcon name={tx.category?.icon || 'Circle'} size={20} />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{tx.category?.name}</p>
+                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{tx.category?.name}</p>
                             <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
                               {formatTimeStr(tx.date)}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5 break-words line-clamp-1">
                             {tx.note ? `${tx.note} • ${tx.wallet?.name || ''}` : (tx.wallet?.name || '')}
                           </p>
                         </div>

@@ -55,76 +55,145 @@ export function cleanAmount(text: string): number {
 }
 
 /**
+ * Helper to parse diverse Vietnamese datetime strings
+ * Matches formats like: "29/05/2026 09:54", "28-05-2026 11:55:08", "29-05-2026", "29/05/2026"
+ */
+export function parseVietnameseDateTime(dateStr: string): Date | null {
+  const dateTimeRegex = /(\d{1,2})[-/](\d{1,2})[-/](\d{4}|\d{2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/i;
+  const match = dateStr.match(dateTimeRegex);
+  if (!match) return null;
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1;
+  let year = parseInt(match[3], 10);
+  if (year < 100) year += 2000;
+  
+  const hour = match[4] ? parseInt(match[4], 10) : 12;
+  const min = match[5] ? parseInt(match[5], 10) : 0;
+  const sec = match[6] ? parseInt(match[6], 10) : 0;
+  try {
+    const d = new Date(year, month, day, hour, min, sec);
+    return isNaN(d.getTime()) ? null : d;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Parses bank notification message or SMS alerts
  */
 export function parseBankNotification(text: string): ParsedBankTx | null {
   if (!text) return null;
 
+  // Enhance detection for VietinBank (CTG) and Vietcombank (VCB)
+  // iPay copy-paste has fields like "Thời gian:", "Giao dịch:", "Số dư hiện tại:", "Nội dung:" and the word "iPay"
   const isVCB = /VCB|Vietcombank/i.test(text);
-  const isVietin = /Vietinbank|Vietin/i.test(text);
+  const isVietin = /Vietinbank|Vietin|iPay|Tài khoản:.*Giao dịch:.*Số dư/i.test(text);
 
   if (!isVCB && !isVietin) {
     return null;
   }
 
+  // 1. Specialized Structure for VietinBank (Copy-paste pipe format from iPay notification)
+  // Example: Thời gian: 29/05/2026 09:54|Tài khoản: 106882458063|Giao dịch: -15,000VND|Số dư hiện tại: 3,493,488VND|Nội dung: CT DI:614909659678 PHAN TUAN PHONG chuyen tien; tai iPay
+  if (text.includes('|')) {
+    const parts = text.split('|').map(p => p.trim());
+    let dateVal = new Date().toISOString();
+    let typeVal: 'income' | 'expense' = 'expense';
+    let amountVal = 0;
+    let noteVal = 'Giao dịch Vietinbank';
+    let hasMatchingFields = false;
+
+    for (const part of parts) {
+      if (/Thời gian/i.test(part)) {
+        const rawDate = part.replace(/^[^\s:]*:\s*/i, '').trim();
+        const parsed = parseVietnameseDateTime(rawDate);
+        if (parsed) dateVal = parsed.toISOString();
+        hasMatchingFields = true;
+      } else if (/Giao dịch/i.test(part)) {
+        const rawGiaoDich = part.replace(/^[^\s:]*:\s*/i, '').trim(); // e.g. "-15,000VND"
+        if (rawGiaoDich.startsWith('+')) {
+          typeVal = 'income';
+        } else if (rawGiaoDich.startsWith('-')) {
+          typeVal = 'expense';
+        }
+        amountVal = cleanAmount(rawGiaoDich);
+        hasMatchingFields = true;
+      } else if (/Nội dung/i.test(part)) {
+        noteVal = part.replace(/^[^\s:]*:\s*/i, '').trim();
+        hasMatchingFields = true;
+      }
+    }
+
+    if (hasMatchingFields && amountVal > 0) {
+      return {
+        bank: 'CTG',
+        type: typeVal,
+        amount: amountVal,
+        date: dateVal,
+        note: noteVal
+      };
+    }
+  }
+
+  // 2. Generic and specialized regex parsing for VCB & typical VietinBank/VCB SMS
   let type: 'income' | 'expense' = 'expense';
   let amount = 0;
   let dateStr = new Date().toISOString();
-  let note = 'Giao dịch ngân hàng';
+  let note = isVCB ? 'Giao dịch Vietcombank' : 'Giao dịch Vietinbank';
 
-  // Extract Amount and Sign
-  // VCB pattern: VCB: TK 0123 +300,000VND luc 29-05-2026 10:25:31
-  // Vietinbank pattern: GD 0123 -150,000VND luc 29-05-2026
-  const balanceChangeRegex = /([+-]?\s*[0-9.,]+)\s*(?:VND|đ|Vnd|vnd|d)/gi;
-  const matches = [...text.matchAll(balanceChangeRegex)];
-  
-  if (matches.length > 0) {
-    const rawMatch = matches[0][1].replace(/\s/g, '');
-    if (rawMatch.startsWith('+')) {
+  // Extract VCB specific transaction amount if possible to prevent remaining balance conflict
+  // Example: "Số dư TK VCB 0251002542060 -3,700,000 VND lúc 28-05-2026 11:55:08..."
+  const vcbTxRegex = /(?:TK VCB|Số dư TK VCB|SD TK VCB)\s+\d+\s+([+-]\s*[0-9.,]+)\s*(?:VND|đ|d|Vnd|vnd|Vnd|VND)/i;
+  const matchTx = text.match(vcbTxRegex);
+
+  if (matchTx) {
+    const rawAmt = matchTx[1].replace(/\s/g, '');
+    if (rawAmt.startsWith('+')) {
       type = 'income';
-    } else if (rawMatch.startsWith('-')) {
+    } else if (rawAmt.startsWith('-')) {
       type = 'expense';
-    } else {
-      // fallback detection via context keywords
-      const lowerText = text.toLowerCase();
-      if (lowerText.includes('cong') || lowerText.includes('vao') || lowerText.includes('+') || lowerText.includes('nhan')) {
+    }
+    amount = cleanAmount(rawAmt);
+  } else {
+    // General fallback: first look for signed changes (+ or -)
+    const signedRegex = /([+-]\s*[0-9.,]+)\s*(?:VND|đ|Vnd|vnd|d|Vnd|VND)/gi;
+    const signedMatches = [...text.matchAll(signedRegex)];
+    
+    if (signedMatches.length > 0) {
+      const rawAmt = signedMatches[0][1].replace(/\s/g, '');
+      if (rawAmt.startsWith('+')) {
         type = 'income';
-      } else if (lowerText.includes('tru') || lowerText.includes('ra') || lowerText.includes('-')) {
+      } else if (rawAmt.startsWith('-')) {
         type = 'expense';
       }
+      amount = cleanAmount(rawAmt);
+    } else {
+      // Unsigned change fallback
+      const valueRegex = /([0-9.,]+)\s*(?:VND|đ|Vnd|vnd|d|Vnd|VND)/i;
+      const unsignedMatch = text.match(valueRegex);
+      if (unsignedMatch) {
+        amount = cleanAmount(unsignedMatch[1]);
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes('cong') || lowerText.includes('vao') || lowerText.includes('nhan') || lowerText.includes('+')) {
+          type = 'income';
+        } else {
+          type = 'expense';
+        }
+      }
     }
-    amount = cleanAmount(rawMatch);
   }
 
-  // Extract Date/Time
-  // format typical: 29-05-2026 10:25:31 or 29/05/2026 or 29/05 16:21
-  const dateTimeRegex = /(\d{1,2})[-/](\d{1,2})[-/](\d{4}|\d{2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/i;
-  const dateMatch = text.match(dateTimeRegex);
-  if (dateMatch) {
-    const day = parseInt(dateMatch[1], 10);
-    const month = parseInt(dateMatch[2], 10) - 1;
-    let year = parseInt(dateMatch[3], 10);
-    if (year < 100) year += 2000; // handle 2-digit years
-    
-    const hour = dateMatch[4] ? parseInt(dateMatch[4], 10) : 12;
-    const min = dateMatch[5] ? parseInt(dateMatch[5], 10) : 0;
-    const sec = dateMatch[6] ? parseInt(dateMatch[6], 10) : 0;
-    
-    try {
-      const parsedDate = new Date(year, month, day, hour, min, sec);
-      if (!isNaN(parsedDate.getTime())) {
-        dateStr = parsedDate.toISOString();
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  // Extract date/time of the transaction
+  const parsedDate = parseVietnameseDateTime(text);
+  if (parsedDate) {
+    dateStr = parsedDate.toISOString();
   }
 
   // Extract Note/Content
-  // VCB usually: ND: DE-CAP... or Noi dung: ...
-  // VietinBank usually: ND: ...
-  const ndRegex = /(?:ND:|Noi\s+dung:|Content:)\s*(.*)$/i;
+  // Standard labels first: "ND:", "Noi dung:", "Nội dung:", "Content:"
+  const ndRegex = /(?:ND:|Noi\s+dung:|Nội\s+dung:|Content:)\s*(.*)$/i;
   const ndMatch = text.match(ndRegex);
+  
   if (ndMatch && ndMatch[1]) {
     note = ndMatch[1].trim();
     // clean up trailing balance info if captured
@@ -133,23 +202,47 @@ export function parseBankNotification(text: string): ParsedBankTx | null {
       note = note.substring(0, balanceIndex).trim();
     }
   } else {
-    // If no ND label, try to grab everything after time
-    const timeIndex = text.search(/\d{1,2}:\d{2}/);
-    if (timeIndex > -1) {
-      const remainder = text.substring(timeIndex + 5).trim();
-      // look for content
-      const dotIndex = remainder.indexOf('.');
-      if (dotIndex > 1) {
-        note = remainder.substring(0, dotIndex).replace(/^[-\s.:,]+/g, '').trim();
+    // VCB specific "Ref ..." matching or generic sentence extraction
+    const refIndex = text.toLowerCase().indexOf('ref');
+    if (refIndex > -1) {
+      note = text.substring(refIndex).trim();
+      
+      // Smart cleaner for Ref prefixes to render a beautiful user-friendly description
+      // e.g. "Ref MBVCB.14416861459.913094.PHAN TUAN PHONG..." -> "PHAN TUAN PHONG..."
+      note = note.replace(/^Ref\s+[A-Z0-9.-]+\. (?=[A-Z])/i, ''); 
+      note = note.replace(/^Ref\s+[A-Z0-9.-]+\.([A-Z])/i, '$1'); 
+      note = note.replace(/^Ref\s+[A-Z0-9.-]+/i, ''); 
+      note = note.replace(/^[.\s:-]+/g, '').trim();
+    } else {
+      // Split text and find informative part after datetime
+      const sentences = text.split(/\.\s+/);
+      if (sentences.length >= 3) {
+        const filtered = sentences.filter(s => !/Số dư TK|SD TK|TK VCB|lúc|lúc|Số dư/i.test(s));
+        if (filtered.length > 0) {
+          note = filtered.join('. ');
+        }
       } else {
-        note = remainder.replace(/^[-\s.:,]+/g, '').trim();
+        const timeIndex = text.search(/\d{1,2}:\d{2}/);
+        if (timeIndex > -1) {
+          const remainder = text.substring(timeIndex + 5).trim();
+          const dotIndex = remainder.indexOf('.');
+          // Ensure we bypass direct decimal suffixes (like the remainder of seconds in time, e.g. ":08.")
+          const cleanRemainder = remainder.replace(/^:\d{2}/, '').replace(/^[-\s.:,]+/g, '').trim();
+          const nextDot = cleanRemainder.indexOf('.');
+          
+          if (nextDot > 1) {
+            note = cleanRemainder.substring(0, nextDot).trim();
+          } else {
+            note = cleanRemainder;
+          }
+        }
       }
     }
   }
 
-  // Clean note up
-  if (note.length > 100) {
-    note = note.substring(0, 97) + '...';
+  // Truncate cleanly
+  if (note.length > 150) {
+    note = note.substring(0, 147) + '...';
   }
 
   return {
