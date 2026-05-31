@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Users, Layout, Package, Trash2, Edit2, AlertTriangle, Calendar, Tag, ArrowLeft, Clock } from 'lucide-react';
 import { NabeAccount, NabeAccountType } from '../types';
-import { deleteNabeAccount } from '../lib/nabeApi';
+import { deleteNabeAccount, updateNabeAccount } from '../lib/nabeApi';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 import NabeAccountModal from '../components/NabeAccountModal';
@@ -20,7 +20,7 @@ export default function NabeAccountInventoryView({ nabeAccounts, setActiveView, 
   const [selectedAccount, setSelectedAccount] = useState<NabeAccount | null>(null);
 
   const filteredAccounts = useMemo(() => {
-    return nabeAccounts.filter(a => a.type === activeType);
+    return nabeAccounts.filter(a => a.type === activeType && a.status !== 'archived');
   }, [nabeAccounts, activeType]);
 
   const activeDetailAccount = useMemo(() => {
@@ -28,10 +28,17 @@ export default function NabeAccountInventoryView({ nabeAccounts, setActiveView, 
     return nabeAccounts.find(a => a.id === selectedAccount.id) || null;
   }, [nabeAccounts, selectedAccount]);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Bạn chắc chắn muốn xoá tài khoản này?')) {
-        await deleteNabeAccount(id);
-        toast.success('Đã xoá thành công');
+  const handleArchive = async (account: NabeAccount) => {
+    if (confirm(`Bạn muốn lưu trữ tài khoản "${account.name}" (giữ lại dữ liệu) không?`)) {
+        await updateNabeAccount(account.id, { ...account, status: 'archived' });
+        toast.success(`Đã lưu trữ thành công "${account.name}"`);
+    }
+  }
+
+  const handleDelete = async (account: NabeAccount) => {
+    if (confirm(`CHÚ Ý: Bạn muốn XOÁ VĨNH VIỄN tài khoản "${account.name}"? Dữ liệu bên trong sẽ mất hết.`)) {
+        await deleteNabeAccount(account.id);
+        toast.success(`Đã xoá vĩnh viễn "${account.name}"`);
     }
   }
 
@@ -89,7 +96,7 @@ export default function NabeAccountInventoryView({ nabeAccounts, setActiveView, 
                         <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate mt-0.5">{account.name}</h3>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">Hạn: {new Date(account.expiryDate).toLocaleDateString('vi-VN')}</p>
                         {account.slotCapacity > 0 && (
-                            <p className={cn("text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full", 
+                            <p className={cn("text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full",                
                               account.slotCapacity - account.members.length === 0 
                                 ? "bg-rose-500/10 text-rose-500" 
                                 : "bg-emerald-500/10 text-emerald-600"
@@ -99,7 +106,7 @@ export default function NabeAccountInventoryView({ nabeAccounts, setActiveView, 
                         )}
                     </div>
                 </div>
-                <button onClick={() => handleDelete(account.id)} className="p-2 text-slate-400 hover:text-rose-500 dark:text-slate-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors">
+                <button onClick={() => handleArchive(account.id)} className="p-2 text-slate-400 hover:text-rose-500 dark:text-slate-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors">
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -203,7 +210,7 @@ export default function NabeAccountInventoryView({ nabeAccounts, setActiveView, 
                         )}
                     </div>
                 </div>
-                <button onClick={() => handleDelete(account.id)} className="p-2 text-slate-400 hover:text-rose-500 dark:text-slate-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors">
+                <button onClick={() => handleArchive(account.id)} className="p-2 text-slate-400 hover:text-rose-500 dark:text-slate-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/10 rounded-lg transition-colors">
                   <Trash2 size={15} />
                 </button>
               </div>

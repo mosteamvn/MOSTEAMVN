@@ -93,6 +93,7 @@ export interface NabeAccount {
   slotCapacity: number; // 5 for family, 1 for regular, 0 for physical
   expiryDate: string; // ISO string
   createdAt: number;
+  status?: 'active' | 'archived'; // Add status field
   activities?: { id: string; date: number; text: string }[];
 }
 

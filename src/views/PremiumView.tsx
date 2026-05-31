@@ -134,9 +134,9 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
   const [subscriptions, setSubscriptions] = useState<PremiumSubscription[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Search & Filter state
+  // Filter & Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'near-expiry'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'near-expiry' | 'refunded'>('all');
   const [selectedProductType, setSelectedProductType] = useState<string>('Tất cả');
 
   // Modal / Form state
@@ -154,6 +154,8 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
   const [formProductId, setFormProductId] = useState('');
   const [formProductName, setFormProductName] = useState('');
   const [formDurationDays, setFormDurationDays] = useState<number>(30);
+  const [useCustomDuration, setUseCustomDuration] = useState(false);
+  const [formCustomDuration, setFormCustomDuration] = useState<number>(0);
   const [formPurchasePrice, setFormPurchasePrice] = useState<string>('0');
   const [formPurchaseDate, setFormPurchaseDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [formBonusDays, setFormBonusDays] = useState<number>(0);
@@ -209,7 +211,7 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
   // Automated computations based on form input variables
   const computedFormValues = useMemo(() => {
     try {
-      const duration = Number(formDurationDays) || 30;
+      const duration = useCustomDuration ? Number(formCustomDuration) : Number(formDurationDays);
       const bonus = Number(formBonusDays) || 0;
       const price = Number(String(formPurchasePrice).replace(/,/g, '')) || 0;
 
@@ -285,9 +287,13 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
   const filteredSubList = useMemo(() => {
     let list = subListDecorated;
 
-    // Filter near-expiry (ending in <= 7 days)
+    // Filter type
     if (filterType === 'near-expiry') {
-      list = list.filter(sub => sub.remainingDays <= 7);
+      list = list.filter(sub => sub.remainingDays <= 7 && sub.refundStatus !== 'completed');
+    } else if (filterType === 'refunded') {
+      list = list.filter(sub => sub.refundStatus === 'completed');
+    } else {
+      list = list.filter(sub => sub.refundStatus !== 'completed');
     }
 
     // Filter product type
@@ -365,7 +371,17 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
     setFormPhone(sub.phone);
     setFormProductId(sub.productId);
     setFormProductName(sub.productName);
-    setFormDurationDays(sub.durationDays);
+    
+    // Check if standard or custom
+    if ([30, 90, 180, 360].includes(sub.durationDays)) {
+      setFormDurationDays(sub.durationDays);
+      setUseCustomDuration(false);
+    } else {
+      setFormDurationDays(30);
+      setUseCustomDuration(true);
+      setFormCustomDuration(sub.durationDays);
+    }
+
     setFormPurchasePrice(formatNumberWithCommas(sub.purchasePrice));
     setFormPurchaseDate(sub.purchaseDate);
     setFormBonusDays(sub.bonusDays || 0);
@@ -424,7 +440,7 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
         phone: formPhone.trim(),
         productId: formProductId.trim() || formProductName.trim(),
         productName: formProductName.trim(),
-        durationDays: Number(formDurationDays) || 30,
+        durationDays: useCustomDuration ? Number(formCustomDuration) : Number(formDurationDays) || 30,
         purchasePrice: Number(String(formPurchasePrice).replace(/,/g, '')) || 0,
         purchaseDate: formPurchaseDate,
         bonusDays: Number(formBonusDays) || 0,
@@ -619,25 +635,35 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
           <button
             onClick={() => setFilterType('all')}
             className={cn(
-              "flex-1 text-center py-2.5 rounded-lg text-sm font-bold transition-all relative",
+              "flex-1 text-center py-2.5 rounded-lg text-[10px] font-bold transition-all relative",
               filterType === 'all' 
                 ? "bg-white dark:bg-slate-800 text-[#1DBF73] shadow-sm font-black" 
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
             )}
           >
-            Tất cả ({subListDecorated.length})
+            Đang dùng ({subListDecorated.filter(s => s.refundStatus !== 'completed').length})
           </button>
           <button
             onClick={() => setFilterType('near-expiry')}
             className={cn(
-              "flex-1 text-center py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5",
+              "flex-1 text-center py-2.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1",
               filterType === 'near-expiry' 
                 ? "bg-rose-600 text-white shadow-sm font-black animate-pulse" 
                 : "text-rose-600 bg-rose-500/5 dark:bg-rose-500/5 hover:bg-rose-500/10"
             )}
           >
-            <DynamicIcon name="ShieldAlert" size={15} className={cn(filterType === 'near-expiry' && "animate-bounce")} />
-            <span>Sắp hết hạn ({subListDecorated.filter(s => s.remainingDays <= 7).length})</span>
+            Sắp hết ({subListDecorated.filter(s => s.remainingDays <= 7 && s.refundStatus !== 'completed').length})
+          </button>
+          <button
+            onClick={() => setFilterType('refunded')}
+            className={cn(
+              "flex-1 text-center py-2.5 rounded-lg text-[10px] font-bold transition-all",
+              filterType === 'refunded' 
+                ? "bg-slate-600 text-white shadow-sm font-black" 
+                : "text-slate-600 bg-slate-500/5 dark:bg-slate-500/5 hover:bg-slate-500/10"
+            )}
+          >
+            Đã Refund ({subListDecorated.filter(s => s.refundStatus === 'completed').length})
           </button>
         </div>
 
@@ -900,23 +926,39 @@ export default function PremiumView({ nabeAccounts = [], setActiveView, previous
               </div>
 
               {/* Duration select */}
-              <div className="space-y-1.5 flex flex-col">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Gói sản phẩm (ngày)</label>
-                <div className="relative">
-                  <select
-                    value={formDurationDays}
-                    onChange={(e) => setFormDurationDays(Number(e.target.value))}
-                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 pr-10 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all cursor-pointer appearance-none"
-                  >
-                    <option value={30}>Gói 30 ngày</option>
-                    <option value={90}>Gói 90 ngày (3 tháng)</option>
-                    <option value={180}>Gói 180 ngày (6 tháng)</option>
-                    <option value={360}>Gói 360 ngày (1 năm)</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400">
-                    <DynamicIcon name="ChevronsUpDown" size={16} />
-                  </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-355 uppercase tracking-wider pl-1 font-mono">Gói sản phẩm (ngày)</label>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#1DBF73] cursor-pointer">
+                    <input type="checkbox" checked={useCustomDuration} onChange={(e) => setUseCustomDuration(e.target.checked)} className="accent-[#1DBF73]" />
+                    Tùy chỉnh
+                  </label>
                 </div>
+                {useCustomDuration ? (
+                  <input
+                    type="number"
+                    value={formCustomDuration || ''}
+                    placeholder="Nhập số ngày..."
+                    onChange={(e) => setFormCustomDuration(Number(e.target.value))}
+                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all placeholder:text-slate-400"
+                  />
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={formDurationDays}
+                      onChange={(e) => setFormDurationDays(Number(e.target.value))}
+                      className="w-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 px-4 py-3.5 pr-10 rounded-xl text-sm font-semibold text-slate-950 dark:text-white outline-none focus:border-[#1DBF73] focus:ring-2 focus:ring-[#1DBF73]/10 shadow-xs transition-all cursor-pointer appearance-none"
+                    >
+                      <option value={30}>Gói 30 ngày</option>
+                      <option value={90}>Gói 90 ngày (3 tháng)</option>
+                      <option value={180}>Gói 180 ngày (6 tháng)</option>
+                      <option value={360}>Gói 360 ngày (1 năm)</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400">
+                      <DynamicIcon name="ChevronsUpDown" size={16} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Price & Purchase date */}
